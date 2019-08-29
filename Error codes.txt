@@ -1,0 +1,21 @@
+triggered by writeVarToBuffer
+-10 - variable could not be written to buffer because the type does not exist
+-22 - datatype is not supported by operating system
+
+triggered by fromBuffer
+-12 - dataBuffer is too small to contain lynxID and subIndex
+-13 - subIndex retrieved from buffer exceeds the number of elements in structDefinition
+-14 - dataBuffer is to small to contain all data
+-15 - checksum mismatch
+
+triggered by writeVarFromBuffer
+-16 - variable could not be written to lynx because the type does not exist
+
+triggered by multiple
+-11 - lynxID mismatch
+-6 - local size type not available
+-7 - transfer size type not available
+-17 - lynxID does not exist in structures
+
+-20 - device is not open
+-21 - error with serial connection
