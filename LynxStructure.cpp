@@ -1,3 +1,4 @@
+// #include "D:\Visual Studio Projects\Lynx Test V2\Lynx Test V2\pch.h"
 #include "lynxstructure.h"
 
 namespace LynxLib
@@ -147,6 +148,14 @@ namespace LynxLib
 		return temp;
 	}
 
+	LynxString::operator const char*const() const
+	{
+		if (_count < 2)
+			return "";
+
+		return _string;
+	}
+
 	void LynxString::reserve(int size)
 	{
 		_count = 0;
@@ -169,21 +178,25 @@ namespace LynxLib
 		if ((size + 1) <= _reservedCount)
 			return;
 
-		if (_count < 1)
-		{
-			this->reserve(size + 1);
-			return;
-		}
-
-		char * oldString = _string;
-
 		_reservedCount = size + 1;
-		_string = new char[_reservedCount];
+		if (_count < 2) // Nothing to copy
+		{
+			if (_string != LYNX_NULL)
+				delete[] _string;
+			
+			_string = new char[_reservedCount];
+		}
+		else // Data must be copied
+		{ 
+			char * oldString = _string;
 
-		memcpy(_string, oldString, _count);
+			_string = new char[_reservedCount];
 
-		delete[] oldString;
-		oldString = LYNX_NULL;
+			memcpy(_string, oldString, _count);
+
+			delete[] oldString;
+			oldString = LYNX_NULL;
+		}
 	}
 
 	LynxString LynxString::subString(int startIndex, int endIndex)
@@ -203,8 +216,12 @@ namespace LynxLib
 
 	void LynxString::append(const char & other)
 	{
+		if (_count == 0)
+			_count++;
 		this->resize(_count);
+	
 		_string[_count - 1] = other;
+		_string[_count] = '\0';
 		_count++;
 	}
 
@@ -228,6 +245,51 @@ namespace LynxLib
 		this->resize(_count + copyCount - 2);
 		memcpy(&(_string[_count - 1]), other, copyCount);
 		_count = _count + copyCount - 1;
+	}
+
+	void LynxString::reverse()
+	{
+		if (_count < 3)
+			return;
+
+		int lastCharIndex = _count - 2;
+		int halfCount = (lastCharIndex + 1) / 2;
+		char tempChar;
+		for (int i = 0; i < halfCount; i++)
+		{
+			tempChar = _string[i];
+			_string[i] = _string[lastCharIndex - i];
+			_string[lastCharIndex - i] = tempChar;
+		}
+
+	}
+
+	LynxString LynxString::number(int64_t num, int base)
+	{
+		LynxString temp;
+		LynxString::numberTemplateInt<int64_t>(num, temp, base);
+		return temp;
+	}
+
+	LynxString LynxString::number(uint64_t num, int base)
+	{
+		LynxString temp;
+		LynxString::numberTemplateInt<uint64_t>(num, temp, base);
+		return temp;
+	}
+
+	LynxString LynxString::number(int32_t num, int base)
+	{
+		LynxString temp;
+		LynxString::numberTemplateInt<int64_t>(int64_t(num), temp, base);
+		return temp;
+	}
+
+	LynxString LynxString::number(uint32_t num, int base)
+	{
+		LynxString temp;
+		LynxString::numberTemplateInt<int64_t>(int64_t(num), temp, base);
+		return temp;
 	}
 
 	const char * LynxString::toCharArray() const
@@ -496,6 +558,13 @@ namespace LynxLib
 		}
 	
 		return 0;
+	}
+
+	LynxString operator+(const char * const otherCharArray, const LynxString & otherString)
+	{
+		LynxString temp(otherCharArray);
+		temp.append(otherString);
+		return temp;
 	}
 
 	int splitArray(LynxByteArray & buffer, int desiredSize)
