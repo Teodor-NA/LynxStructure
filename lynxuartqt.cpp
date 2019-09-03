@@ -13,20 +13,20 @@ bool LynxUartQt::open(int port, unsigned long baudRate)
     QString portName = QString::asprintf("COM%i", port);
 
     _port.setPortName(portName);
-    _port.setBaudRate(baudRate);
+    _port.setBaudRate(int(baudRate));
 
     _open = _port.open(QSerialPort::ReadWrite);
 
     return _open;
 }
 
-bool LynxUartQt::open(QSerialPortInfo port, unsigned long baudRate)
+bool LynxUartQt::open(const QSerialPortInfo & port, unsigned long baudRate)
 {
     if(_open)
         this->close();
 
     _port.setPort(port);
-    _port.setBaudRate(baudRate);
+    _port.setBaudRate(int(baudRate));
 
     _open = _port.open(QSerialPort::ReadWrite);
 

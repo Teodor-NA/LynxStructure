@@ -1,9 +1,8 @@
+#ifndef LYNX_STRUCTURE_H
+#define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
 //------------------------------------------ LynxStructure V2.0 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
-
-#ifndef LYNX_STRUCTURE
-#define LYNX_STRUCTURE
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -20,19 +19,18 @@ typedef int16_t int8_t
 #endif // TI
 #endif // !LYNX_NULL
 
-#define SIZE_64 sizeof(int64_t)
+#define SIZE_64 sizeof(int64_t) // The local size of a 64 bit integer
 
-#define LYNX_STATIC_HEADER 'A'
-
-#define LYNX_HEADER_BYTES 5
-// #define LYNX_INDEXER_BYTES 2
-#define LYNX_CHECKSUM_BYTES 1
+#define LYNX_STATIC_HEADER 'A'	// Static header for Lynx datagrams (always the first byte of a datagram)
+#define LYNX_HEADER_BYTES 5		// Number of header bytes
+#define LYNX_CHECKSUM_BYTES 1	// Number of checksum bytes
 
 #if !defined(ARDUINO) && !defined(TI)
 #define LYNX_INCLUDE_EXCEPTIONS
 #endif // !ARDUINO && !TI
 
 #include <string.h>
+#include <math.h>
 
 namespace LynxLib
 {
@@ -91,6 +89,8 @@ namespace LynxLib
 
 			this->reserve(other._count);
 
+			// memcpy(_data, other._data, other._count * sizeof(T));
+
 			for (int i = 0; i < other._count; i++)
 			{
 				_data[i] = other._data[i];
@@ -136,7 +136,7 @@ namespace LynxLib
 			if (size <= _reservedCount)
 				return;
 
-			if (_data == LYNX_NULL)
+			if (_count < 1)
 			{
 				this->reserve(size);
 				return;
@@ -152,6 +152,8 @@ namespace LynxLib
 			{
 				_data[i] = oldData[i];
 			}
+
+			// memcpy(_data, oldData, _count * sizeof(T));
 
 			delete[] oldData;
 			oldData = LYNX_NULL;
@@ -184,22 +186,31 @@ namespace LynxLib
 				_data[_count + i] = other._data[i];
 			}
 
+			// memcpy(&_data[_count], other._data, (other._count * sizeof(T)));
+
 			_count += other._count;
 
 			return (_count - 1);
 		}
 
-		void remove(int index)
+		void remove(int indexFrom, int indexTo = -1)
 		{
-			if ((index < 0) || (index >= _count))
+			if (indexTo < 0)
+				indexTo = indexFrom;
+
+			if ((indexFrom < 0) || (indexFrom > indexTo) || (indexTo >= _count))
 				return;
 
-			for (int i = index; i < (_count - 1); i++)
-			{
-				_data[i] = _data[i + 1];
-			}
+			int diff = indexTo - indexFrom + 1;
+			int copySize = _count - indexTo - 1;
 
-			_count--;
+			for (int i = 0; i < copySize; i++)
+			{
+				_data[indexFrom + i] = _data[indexTo + i + 1];
+			}
+			// memmove(adrFrom, adrTo, copySize * sizeof(T));
+
+			_count -= diff;
 		}
 
 		void subList(LynxList<T> & result, int startIndex, int endIndex) const
@@ -213,6 +224,8 @@ namespace LynxLib
 			{
 				result._data[i] = _data[startIndex + i];
 			}
+
+			// memcpy(result._data, _data + startIndex * sizeof(T), diff * sizeof(T));
 
 			result._count = diff;
 		}
@@ -271,6 +284,7 @@ namespace LynxLib
 		const char & last() const;
 
 		int count() const;
+		void clear() { _count = 0; }
 
 		const LynxString & operator = (const LynxString & other);
 		const LynxString & operator = (const char * const other);
@@ -278,18 +292,38 @@ namespace LynxLib
 		void operator += (const char & other);
 		void operator += (const LynxString & other);
 		void operator += (const char * const other);
-
+		
 		LynxString operator + (const char & other);
 		LynxString operator + (const LynxString & other);
 		LynxString operator + (const char * const other);
 
+		friend LynxString operator +(const char * const otherCharArray, const LynxString & otherString);
+
+		operator const char * const() const;
+
 		void resize(int size);
 
 		LynxString subString(int startIndex, int endIndex);
-		
+
 		void append(const char & other);
 		void append(const LynxString & other);
 		void append(const char * const other, int maxLength = 255);
+
+		void reverse(int indexFrom = -1, int indexTo = -1);
+
+		static LynxString number(int64_t num, int base = 10);
+		static LynxString number(uint64_t num, int base = 10);
+		static LynxString number(int32_t num, int base = 10);
+		static LynxString number(uint32_t num, int base = 10);
+
+		static LynxString number(double num, int precision = 5);
+
+		// Remove characters between indexes. Only one character will be removed if indexTo is omitted 
+		void remove(int indexFrom, int indexTo = -1);
+		// All characters after and including index will be removed
+		void removeFrom(int index);
+		// All characters before and including index will be removed
+		void removeTo(int index);
 
 		const char * toCharArray() const;
 	private:
@@ -299,60 +333,55 @@ namespace LynxLib
 
 		void reserve(int size);
 		static int findTermChar(const char * str, int maxLength = 255);
+
+		static void decimalNumber(double num, LynxString & strRef, int precision);
+		static void engNumber(double num, LynxString & strRef, int precision);
+
+		// Appends num to strRef
+		template <class T>
+		static void numberInt(T num, LynxString & strRef, int base = 10)
+		{
+			if ((base < 2) || (base > 16))
+				return;
+
+			if (num == 0)
+			{
+				strRef += '0';
+				return;
+			}
+
+			bool sign = (num < 0);
+			// Absolute vlaue
+			if (sign)
+				num = ~num + 1;
+			
+			T tempNumSub = num;
+			char tempNum;
+
+			int currentCount = strRef.count();
+
+			while (tempNumSub > 0)
+			{
+				tempNumSub /= base;
+				tempNum = char(num - tempNumSub * base);
+
+				if (tempNum < 10)
+					strRef += tempNum + '0';
+				else
+					strRef += tempNum - char(10) + 'a';
+
+				num = tempNumSub;
+			}
+			
+			if (sign)
+				strRef += '-';
+
+			strRef.reverse(currentCount);
+
+			
+		}
+
 	};
-
-	//class LynxString : private LynxList<char>
-	//{
-	//public:
-	//	LynxString() {};
-	//	LynxString(int size) : LynxList(size + 1) {}
-	//	LynxString(const char * const other, int maxLength = 255);
-
-	//	using LynxList::at;
-	//	using LynxList::first;
-	//	using LynxList::operator [];
-
-	//	void operator += (const char & other) { this->append(other); }
-	//	void operator += (const LynxString & other) { this->append(other); }
-	//	void operator += (const char * const other) { this->append(other); }
-
-	//	LynxString operator + (const char & other)
-	//	{
-	//		LynxString temp(this->_count + 1);
-	//		temp.append(*this);
-	//		temp.append(other);
-	//		return temp;
-	//	}
-	//	LynxString operator + (const LynxString & other)
-	//	{
-	//		LynxString temp(this->_count + other._count - 2);
-	//		temp.append(*this);
-	//		temp.append(other);
-	//		return temp;
-	//	}
-	//	LynxString operator + (const char * const other)
-	//	{
-	//		LynxString temp(other);
-	//		LynxString temp2(this->_count + temp._count - 2);
-	//		temp2.append(*this);
-	//		temp2.append(temp);
-	//		return temp2;
-	//	}
-
-	//	const char & last() const { return _data[_count - 2]; }
-	//	char & last() { return _data[_count - 2]; }
-	//	void reserve(int size) { LynxList::reserve(size + 1); }
-	//	void resize(int size) { LynxList::resize(size + 1); }
-
-	//	LynxString subString(int startIndex, int endIndex);
-	//	void append(const char & other);
-	//	void append(const LynxString & other);
-	//	void append(const char * const other);
-
-	//	const char * toCharArray() const;
-	//private:
-	//};
-
 
 	//-----------------------------------------------------------------------------------------------------------
 	//----------------------------------------- LynxByteArray ---------------------------------------------------
@@ -806,4 +835,4 @@ namespace LynxLib
 
 	// extern LynxManager Lynx;
 }
-#endif // !LYNX_STRUCTURE
+#endif // !LYNX_STRUCTURE_H
