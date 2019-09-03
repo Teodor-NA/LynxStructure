@@ -30,7 +30,7 @@ typedef int16_t int8_t
 #endif // !ARDUINO && !TI
 
 #include <string.h>
-// #include <math.h>
+#include <math.h>
 
 namespace LynxLib
 {
@@ -89,6 +89,8 @@ namespace LynxLib
 
 			this->reserve(other._count);
 
+			// memcpy(_data, other._data, other._count * sizeof(T));
+
 			for (int i = 0; i < other._count; i++)
 			{
 				_data[i] = other._data[i];
@@ -134,7 +136,7 @@ namespace LynxLib
 			if (size <= _reservedCount)
 				return;
 
-			if (_data == LYNX_NULL)
+			if (_count < 1)
 			{
 				this->reserve(size);
 				return;
@@ -150,6 +152,8 @@ namespace LynxLib
 			{
 				_data[i] = oldData[i];
 			}
+
+			// memcpy(_data, oldData, _count * sizeof(T));
 
 			delete[] oldData;
 			oldData = LYNX_NULL;
@@ -182,22 +186,31 @@ namespace LynxLib
 				_data[_count + i] = other._data[i];
 			}
 
+			// memcpy(&_data[_count], other._data, (other._count * sizeof(T)));
+
 			_count += other._count;
 
 			return (_count - 1);
 		}
 
-		void remove(int index)
+		void remove(int indexFrom, int indexTo = -1)
 		{
-			if ((index < 0) || (index >= _count))
+			if (indexTo < 0)
+				indexTo = indexFrom;
+
+			if ((indexFrom < 0) || (indexFrom > indexTo) || (indexTo >= _count))
 				return;
 
-			for (int i = index; i < (_count - 1); i++)
-			{
-				_data[i] = _data[i + 1];
-			}
+			int diff = indexTo - indexFrom + 1;
+			int copySize = _count - indexTo - 1;
 
-			_count--;
+			for (int i = 0; i < copySize; i++)
+			{
+				_data[indexFrom + i] = _data[indexTo + i + 1];
+			}
+			// memmove(adrFrom, adrTo, copySize * sizeof(T));
+
+			_count -= diff;
 		}
 
 		void subList(LynxList<T> & result, int startIndex, int endIndex) const
@@ -211,6 +224,8 @@ namespace LynxLib
 			{
 				result._data[i] = _data[startIndex + i];
 			}
+
+			// memcpy(result._data, _data + startIndex * sizeof(T), diff * sizeof(T));
 
 			result._count = diff;
 		}
@@ -294,13 +309,21 @@ namespace LynxLib
 		void append(const LynxString & other);
 		void append(const char * const other, int maxLength = 255);
 
-		void reverse();
+		void reverse(int indexFrom = -1, int indexTo = -1);
 
 		static LynxString number(int64_t num, int base = 10);
 		static LynxString number(uint64_t num, int base = 10);
 		static LynxString number(int32_t num, int base = 10);
 		static LynxString number(uint32_t num, int base = 10);
 
+		static LynxString number(double num, int precision = 5);
+
+		// Remove characters between indexes. Only one character will be removed if indexTo is omitted 
+		void remove(int indexFrom, int indexTo = -1);
+		// All characters after and including index will be removed
+		void removeFrom(int index);
+		// All characters before and including index will be removed
+		void removeTo(int index);
 
 		const char * toCharArray() const;
 	private:
@@ -311,11 +334,13 @@ namespace LynxLib
 		void reserve(int size);
 		static int findTermChar(const char * str, int maxLength = 255);
 
-		template <class T>
-		static void numberTemplateInt(T num, LynxString & strRef, int base = 10)
-		{
-			strRef._count = 0;
+		static void decimalNumber(double num, LynxString & strRef, int precision);
+		static void engNumber(double num, LynxString & strRef, int precision);
 
+		// Appends num to strRef
+		template <class T>
+		static void numberInt(T num, LynxString & strRef, int base = 10)
+		{
 			if ((base < 2) || (base > 16))
 				return;
 
@@ -332,61 +357,8 @@ namespace LynxLib
 			
 			T tempNumSub = num;
 			char tempNum;
-			
-			// This is quite pointless, since it's just a temporary return value anyway
-			// only useful if you have extremely limited memory available
-			// reserve space for largest possible represented number
-			//switch (base)
-			//{
-			//case 2: // -111111111111111111111111111111111111111111111111111111111111111 64
-			//	strRef.resize(64);
-			//	break;
-			//case 3: // -2021110011022210012102010021220101220221 61
-			//	strRef.resize(61);
-			//	break;
-			//case 4: // -13333333333333333333333333333333 33
-			//	strRef.resize(33);
-			//	break;
-			//case 5: // -1104332401304422434310311212 29
-			//	strRef.resize(29);
-			//	break;
-			//case 6: // -1540241003031030222122211 26
-			//	strRef.resize(26);
-			//	break;
-			//case 7: // -22341010611245052052300 24
-			//	strRef.resize(24);
-			//	break;
-			//case 8: // -777777777777777777777 22
-			//	strRef.resize(22);
-			//	break;
-			//case 9: // -67404283172107811827 21
-			//	strRef.resize(21);
-			//	break;
-			//case 10: // -9223372036854775807 20
-			//	strRef.resize(20);
-			//	break;
-			//case 11: // -1728002635214590697 20
-			//	strRef.resize(20);
-			//	break;
-			//case 12: // -41a792678515120367 19
-			//	strRef.resize(19);
-			//	break;
-			//case 13: // -10b269549075433c37 19
-			//	strRef.resize(19);
-			//	break;
-			//case 14: // -4340724c6c71dc7a7 18
-			//	strRef.resize(18);
-			//	break;
-			//case 15: // -160e2ad3246366807 18
-			//	strRef.resize(18);
-			//	break;
-			//case 16: // -7fffffffffffffff 17
-			//	strRef.resize(17);
-			//	break;
-			//}
-			
-			// Reserve space for largest possible represented number, 64 bit base 2
-			strRef.resize(64);
+
+			int currentCount = strRef.count();
 
 			while (tempNumSub > 0)
 			{
@@ -400,11 +372,13 @@ namespace LynxLib
 
 				num = tempNumSub;
 			}
-
+			
 			if (sign)
 				strRef += '-';
 
-			strRef.reverse();
+			strRef.reverse(currentCount);
+
+			
 		}
 
 	};

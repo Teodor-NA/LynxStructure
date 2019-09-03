@@ -5,8 +5,6 @@
 
 using namespace LynxLib;
 
-// Git test in qt
-
 struct TestStructure
 {
     TestStructure(LynxManager & lynx, char _structId) :

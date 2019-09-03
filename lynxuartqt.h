@@ -16,7 +16,7 @@ public:
     ~LynxUartQt() {}
 
     bool open(int port, unsigned long baudRate);
-    bool open(QSerialPortInfo port, unsigned long baudrate);
+    bool open(const QSerialPortInfo & port, unsigned long baudrate);
     void close();
 
     QSerialPort * portPointer() { return &_port; }
