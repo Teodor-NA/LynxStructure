@@ -20,6 +20,7 @@ private:
 	int read(int count = 1);
 	void write();
 	int bytesAvailable() const;
+	uint32_t getMillis() const;
 
 	int _port;
 };

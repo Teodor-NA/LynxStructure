@@ -432,7 +432,29 @@ namespace LynxLib
 		eSplitArrayFailed,
 		eMergeArrayFailed,
         eEndiannessNotSet,
-		eUnknownError
+        eUnknownError,
+        eEndOfList
+    };
+
+    static const LynxString lynsStateTextList[E_LynxState::eEndOfList] =
+    {
+        "No change",
+        "New data received",
+        "Data copied to buffer",
+        "Out of sync",
+        "Struct id not found",
+        "Variable index out of bounds",
+        "Buffer too small",
+        "Wrong checksum",
+        "Wrong static header",
+        "Wrong data length",
+        "Data length not found",
+        "No structures in list",
+        "Struct index out of bounds",
+        "Split array failed",
+        "Merge array failed",
+        "Endianness not set",
+        "Unknown error"
     };
 
 	enum E_LynxDataType
@@ -604,25 +626,25 @@ namespace LynxLib
 		// Creates a buffer with the desired information, and returns it
 		// LynxByteArray toArray(int variableIndex = -1) const;
 
-		// Copies the desired information to the provided buffer
+		/// Copies the desired information to the provided buffer
 		E_LynxState toArray(LynxByteArray & buffer, int variableIndex = -1) const;
 
-		// Copies the required information to the char array
+		/// Copies the required information to the char array
 		E_LynxState toArray(char * buffer, int maxSize, int & copiedSize, int variableIndex = -1) const;
 
-		// Copies information from the provided buffer
+		/// Copies information from the provided buffer
         void fromArray(const LynxByteArray & buffer, LynxInfo & lynxInfo);
 
-		// Copies information from char array, and returns number of bytes copied
+		/// Copies information from char array, and returns number of bytes copied
         void fromArray(const char * buffer, int size, LynxInfo & lynxInfo);
 
-		// Manually add a variable to the variable list
+		/// Manually add a variable to the variable list
 		LynxId addVariable(int structIndex, E_LynxDataType dataType);
 
-		// Returns the transfersize of requested data (not including header and checksum)
+		/// Returns the transfersize of requested data (not including header and checksum)
 		int transferSize(int variableIndex = -1) const;
 
-		// Returns the local size of requested data (not including header and checksum)
+		/// Returns the local size of requested data (not including header and checksum)
 		int localSize(int variableIndex = -1) const;
 
         void setStructId(char structId) { _structId = structId; }

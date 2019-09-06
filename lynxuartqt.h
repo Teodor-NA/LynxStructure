@@ -6,6 +6,7 @@
 #include <QtSerialPort/QSerialPortInfo>
 #include <QIODevice>
 #include <QtDebug>
+#include <QTime>
 
 using namespace LynxLib;
 
@@ -25,8 +26,10 @@ private:
     int read(int count = 1);
     void write();
     int bytesAvailable() const;
+    uint32_t getMillis() const;
 
     QSerialPort _port;
+    QTime _timer;
 
 };
 
