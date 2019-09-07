@@ -100,7 +100,23 @@ namespace LynxLib
 		return _updateInfo;
 	}
 
-    E_LynxState LynxIoDevice::send(const LynxId & lynxId)
+	void LynxIoDevice::periodicTransmitUpdate()
+	{
+		_currentTime = this->getMillis();
+
+		int overtime;
+		for (int i = 0; i < _periodicTransmits.count(); i++)
+		{
+			overtime = (_currentTime - _periodicTransmits.at(i).previousTimeStamp) - _periodicTransmits.at(i).timeInterval;
+			if (overtime >= 0)
+			{
+				_periodicTransmits[i].previousTimeStamp = _currentTime - overtime;
+				this->send(LynxId(_periodicTransmits.at(i)));
+			}
+		}
+	}
+
+	E_LynxState LynxIoDevice::send(const LynxId & lynxId)
 	{
         E_LynxState state = _lynx->toArray(_writeBuffer, lynxId);
 	
@@ -110,5 +126,32 @@ namespace LynxLib
         this->write();
 
 		return state;
+	}
+	
+	void LynxIoDevice::periodicTransmitStart(const LynxId & lynxId, uint32_t interval)
+	{
+		for (int i = 0; i < _periodicTransmits.count(); i++)
+		{
+			if (LynxId(_periodicTransmits.at(i)) == lynxId)
+			{
+				_periodicTransmits[i].timeInterval = interval;
+				return;
+			}
+		}
+
+		_periodicTransmits.append(LynxPeriodicTransmit(lynxId, interval, 0));
+		return;
+	}
+
+	void LynxIoDevice::periodicTransmitStop(const LynxId & lynxId)
+	{
+		for (int i = 0; i < _periodicTransmits.count(); i++)
+		{
+			if (LynxId(_periodicTransmits.at(i)) == lynxId)
+			{
+				_periodicTransmits.remove(i);
+				return;
+			}
+		}
 	}
 }

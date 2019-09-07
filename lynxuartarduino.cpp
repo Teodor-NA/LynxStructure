@@ -88,6 +88,17 @@ void LynxUartArduino::close()
 	_open = false;
 }
 
+//bool LynxUartArduino::periodicTransmitStart(const LynxId & lynxId)
+//{
+//
+//
+//	return false;
+//}
+//
+//void LynxUartArduino::periodicTransmitStop(const LynxId & lynxId)
+//{
+//}
+
 int LynxUartArduino::read(int count)
 {
 	if (!_open)
@@ -261,4 +272,9 @@ int LynxUartArduino::bytesAvailable() const
 	}
 
 	return 0;
+}
+
+uint32_t LynxUartArduino::getMillis() const
+{
+	return millis();
 }

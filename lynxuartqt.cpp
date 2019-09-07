@@ -2,7 +2,7 @@
 
 LynxUartQt::LynxUartQt(LynxManager & lynx) : LynxIoDevice(lynx)
 {
-
+    _timer.start();
 }
 
 bool LynxUartQt::open(int port, unsigned long baudRate)
@@ -69,4 +69,9 @@ int LynxUartQt::bytesAvailable() const
         return 0;
 
     return static_cast<int>(_port.bytesAvailable());
+}
+
+uint32_t LynxUartQt::getMillis() const
+{
+    return uint32_t(_timer.elapsed());
 }
