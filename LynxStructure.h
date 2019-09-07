@@ -166,7 +166,7 @@ namespace LynxLib
 		int append()
 		{
 			this->resize(_count + 1);
-			_data[_count] = T();
+			// _data[_count] = T();
 			_count++;
 
 			return (_count - 1);
@@ -193,6 +193,20 @@ namespace LynxLib
 			// memcpy(&_data[_count], other._data, (other._count * sizeof(T)));
 
 			_count += other._count;
+
+			return (_count - 1);
+		}
+
+		int append(const T * const other, int size)
+		{
+			this->resize(_count + size);
+
+			for (int i = 0; i < size; i++)
+			{
+				_data[_count + i] = other[i];
+			}
+
+			_count += size;
 
 			return (_count - 1);
 		}
@@ -473,7 +487,8 @@ namespace LynxLib
 		eInt64,
 		eUint64,
 		eFloat,
-		eDouble
+		eDouble,
+		eString
 	};
 
 	enum E_Endianness
@@ -483,40 +498,60 @@ namespace LynxLib
 		eLittleEndian
 	};
 
+	union LynxUnion
+	{
+		char bytes[SIZE_64];
+		int8_t _var_i8;
+		uint8_t _var_u8;
+		int16_t _var_i16;
+		uint16_t _var_u16;
+		int32_t _var_i32;
+		uint32_t _var_u32;
+		float _var_float;
+		int64_t _var_i64;
+		uint64_t _var_u64;
+		double _var_double;
+	};
+
 	class LynxType
 	{
 	public:
 		LynxType();
 		LynxType(E_LynxDataType dataType);
-        LynxType(const LynxType & other) { *this = other; }
+        LynxType(const LynxType & other) : LynxType(other._dataType) { *this = other; }
+		~LynxType();
 
-        int8_t & var_i8() { return _data._var_i8; }
-        uint8_t & var_u8() { return _data._var_u8; }
-        int16_t & var_i16() { return _data._var_i16; }
-        uint16_t & var_u16() { return _data._var_u16; }
-        int32_t & var_i32() { return _data._var_i32; }
-        uint32_t & var_u32() { return _data._var_u32; }
-        float & var_float() { return _data._var_float; }
-        int64_t & var_i64() { return _data._var_i64; }
-        uint64_t & var_u64() { return _data._var_u64; }
-        double & var_double() { return _data._var_double; }
+		void init(E_LynxDataType dataType);
 
-        const int8_t & var_i8() const { return _data._var_i8; }
-        const uint8_t & var_u8() const { return _data._var_u8; }
-        const int16_t & var_i16() const { return _data._var_i16; }
-        const uint16_t & var_u16() const { return _data._var_u16; }
-        const int32_t & var_i32() const { return _data._var_i32; }
-        const uint32_t & var_u32() const { return _data._var_u32; }
-        const float & var_float() const { return _data._var_float; }
-        const int64_t & var_i64() const { return _data._var_i64; }
-        const uint64_t & var_u64() const { return _data._var_u64; }
-        const double & var_double() const { return _data._var_double; }
+        int8_t & var_i8() { return _var->_var_i8; }
+        uint8_t & var_u8() { return _var->_var_u8; }
+        int16_t & var_i16() { return _var->_var_i16; }
+        uint16_t & var_u16() { return _var->_var_u16; }
+        int32_t & var_i32() { return _var->_var_i32; }
+        uint32_t & var_u32() { return _var->_var_u32; }
+        float & var_float() { return _var->_var_float; }
+        int64_t & var_i64() { return _var->_var_i64; }
+        uint64_t & var_u64() { return _var->_var_u64; }
+        double & var_double() { return _var->_var_double; }
+
+		LynxString & var_string() { return *_str; }
+
+        const int8_t & var_i8() const { return _var->_var_i8; }
+        const uint8_t & var_u8() const { return _var->_var_u8; }
+        const int16_t & var_i16() const { return _var->_var_i16; }
+        const uint16_t & var_u16() const { return _var->_var_u16; }
+        const int32_t & var_i32() const { return _var->_var_i32; }
+        const uint32_t & var_u32() const { return _var->_var_u32; }
+        const float & var_float() const { return _var->_var_float; }
+        const int64_t & var_i64() const { return _var->_var_i64; }
+        const uint64_t & var_u64() const { return _var->_var_u64; }
+        const double & var_double() const { return _var->_var_double; }
+
+		const LynxString & var_string() const { return *_str; }
 
 		E_LynxDataType dataType() const { return _dataType; }
 		int localSize() const;
 		int transferSize() const;
-
-		// static int splitVariable(LynxByteArray & buffer, int desiredSize);
 
         int toArray(LynxByteArray & buffer, E_LynxState & state) const;
         int fromArray(const LynxByteArray & buffer, int startIndex, E_LynxState & state);
@@ -531,27 +566,25 @@ namespace LynxLib
 			if (&other == this)
 				return *this;
 
-			_data._var_i64 = other._data._var_i64;
-			_dataType = other._dataType;
+			if (_dataType == eInvalidType)
+				this->init(other._dataType);
+
+			if ((_var != LYNX_NULL) && (other._var != LYNX_NULL))
+				_var->_var_i64 = other._var->_var_i64;
+
+			if ((_str != LYNX_NULL) && (other._str != LYNX_NULL))
+				*_str = *(other._str);
+
+			// _dataType = other._dataType;
 
 			return *this;
         }
 
 	private:
-		union LynxUnion
-		{
-			char bytes[SIZE_64];
-			int8_t _var_i8;
-			uint8_t _var_u8;
-			int16_t _var_i16;
-			uint16_t _var_u16;
-			int32_t _var_i32;
-			uint32_t _var_u32;
-			float _var_float;
-			int64_t _var_i64;
-			uint64_t _var_u64;
-			double _var_double;
-		}_data;
+
+
+		LynxUnion * _var;
+		LynxString * _str;
 
         E_LynxDataType _dataType;
         static E_Endianness _endianness;
@@ -616,8 +649,8 @@ namespace LynxLib
 		{
 			LynxList::operator=(other);
 			_structId = other._structId;
-			_localSize = other._localSize;
-			_transferSize = other._transferSize;
+			// _localSize = other._localSize;
+			// _transferSize = other._transferSize;
 
 			return *this;
 		}
@@ -656,8 +689,8 @@ namespace LynxLib
 
 	private:
 		char _structId;
-		int _localSize;
-		int _transferSize;
+		// int _localSize;
+		// int _transferSize;
 	};
 
 	class LynxManager : private LynxList<LynxStructure>
@@ -888,6 +921,21 @@ namespace LynxLib
 		const double & operator = (const double & other)
 		{
 			return (_lynxManager->variable(_lynxId).var_double() = other);
+		}
+	};
+
+	class LynxVar_string : public LynxVar
+	{
+	public:
+		// LynxVar_double(const LynxVar & other) : LynxVar(other) {}
+		LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct) :
+			LynxVar(lynxManager, parentStruct, eString) {}
+
+		operator const LynxString&() const { return _lynxManager->variable(_lynxId).var_string(); }
+
+		const LynxString & operator = (const LynxString & other)
+		{
+			return (_lynxManager->variable(_lynxId).var_string() = other);
 		}
 	};
 
