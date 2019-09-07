@@ -29,6 +29,10 @@ typedef int16_t int8_t
 #define LYNX_INCLUDE_EXCEPTIONS
 #endif // !ARDUINO && !TI
 
+#define LYNX_STRUCTURE_MACRO \
+private: const LynxId _lynxId; \
+public: const LynxId & lynxId() { return _lynxId; }
+
 #include <string.h>
 #include <math.h>
 
@@ -691,7 +695,7 @@ namespace LynxLib
 		int localSize(const LynxId & lynxId) const;
 
 		LynxId addStructure(char structId, int size = 0);
-		LynxVar addVariable(const LynxId & lynxId, E_LynxDataType dataType);
+        LynxId addVariable(const LynxId & parentStruct, E_LynxDataType dataType);
 
 		// Returns number of variables in struct. Returns 0 if out of bounds
 		int structVariableCount(int structIndex);
@@ -710,24 +714,38 @@ namespace LynxLib
 	class LynxVar
 	{
 	public:
-        LynxVar(LynxManager * const lynxManager, const LynxId & lynxId) : _lynxId(lynxId), _lynxManager(lynxManager) {}
-		const LynxId & lynxId() const { return _lynxId; }
+        LynxVar(LynxManager & lynxManager, const LynxId & parentStruct, E_LynxDataType dataType) :
+            _lynxManager(&lynxManager),
+            _lynxId(lynxManager.addVariable(parentStruct, dataType))
+        {}
 
+        LynxVar(const LynxVar & other) :
+            _lynxManager(other._lynxManager),
+            _lynxId(other._lynxId)
+
+        { *this = other; }
+
+        const LynxId & lynxId() const { return _lynxId; }
 		const LynxVar & operator = (const LynxVar & other)
 		{
+            if(&other == this)
+                return *this;
+
 			_lynxManager->copy(other._lynxId, this->_lynxId);
 			return *this;
 		}
 
 	protected:
-		const LynxId _lynxId;
-		LynxManager * const _lynxManager;
+        LynxManager * const _lynxManager;
+        const LynxId _lynxId;
 	};
 
 	class LynxVar_i8 : public LynxVar
 	{
 	public:
-		LynxVar_i8(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_i8(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eInt8) {}
 		
 		operator const int8_t&() const { return _lynxManager->variable(_lynxId).var_i8(); }
 
@@ -741,7 +759,9 @@ namespace LynxLib
 	class LynxVar_u8 : public LynxVar
 	{
 	public:
-		LynxVar_u8(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_u8(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eUint8) {}
 
 		operator const uint8_t&() const { return _lynxManager->variable(_lynxId).var_u8(); }
 
@@ -754,7 +774,9 @@ namespace LynxLib
 	class LynxVar_i16 : public LynxVar
 	{
 	public:
-		LynxVar_i16(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_i16(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eInt16) {}
 
 		operator const int16_t&() const { return _lynxManager->variable(_lynxId).var_i16(); }
 
@@ -767,7 +789,9 @@ namespace LynxLib
 	class LynxVar_u16 : public LynxVar
 	{
 	public:
-		LynxVar_u16(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_u16(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eUint16) {}
 
 		operator const uint16_t&() const { return _lynxManager->variable(_lynxId).var_u16(); }
 
@@ -780,7 +804,9 @@ namespace LynxLib
 	class LynxVar_i32 : public LynxVar
 	{
 	public:
-		LynxVar_i32(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_i32(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eInt32) {}
 
 		operator const int32_t&() const { return _lynxManager->variable(_lynxId).var_i32(); }
 
@@ -793,7 +819,9 @@ namespace LynxLib
 	class LynxVar_u32 : public LynxVar
 	{
 	public:
-		LynxVar_u32(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_u32(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eUint32) {}
 
 		operator const uint32_t&() const { return _lynxManager->variable(_lynxId).var_u32(); }
 
@@ -806,7 +834,9 @@ namespace LynxLib
 	class LynxVar_i64 : public LynxVar
 	{
 	public:
-		LynxVar_i64(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_i64(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eInt64) {}
 
 		operator const int64_t&() const { return _lynxManager->variable(_lynxId).var_i64(); }
 
@@ -819,7 +849,9 @@ namespace LynxLib
 	class LynxVar_u64 : public LynxVar
 	{
 	public:
-		LynxVar_u64(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_u64(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eUint64) {}
 
 		operator const uint64_t&() const { return _lynxManager->variable(_lynxId).var_u64(); }
 
@@ -832,7 +864,9 @@ namespace LynxLib
 	class LynxVar_float : public LynxVar
 	{
 	public:
-		LynxVar_float(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_float(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eFloat) {}
 
 		operator const float&() const { return _lynxManager->variable(_lynxId).var_float(); }
 
@@ -845,7 +879,9 @@ namespace LynxLib
 	class LynxVar_double : public LynxVar
 	{
 	public:
-		LynxVar_double(const LynxVar & other) : LynxVar(other) {}
+        // LynxVar_double(const LynxVar & other) : LynxVar(other) {}
+        LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct) :
+            LynxVar(lynxManager, parentStruct, eDouble) {}
 
 		operator const double&() const { return _lynxManager->variable(_lynxId).var_double(); }
 

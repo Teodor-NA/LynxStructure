@@ -1062,12 +1062,12 @@ namespace LynxLib
 		return temp;
 	}
 
-	LynxVar LynxManager::addVariable(const LynxId & lynxId, E_LynxDataType dataType)
+    LynxId LynxManager::addVariable(const LynxId & parentStruct, E_LynxDataType dataType)
 	{
-		 if ((lynxId.structIndex < 0) || (lynxId.structIndex > _count))
-		 	return LynxVar(this, LynxId(-1, -1));
+         if ((parentStruct.structIndex < 0) || (parentStruct.structIndex > _count))
+            return (LynxId(-1, -1));
 		 	
-		 return LynxVar(this, _data[lynxId.structIndex].addVariable(lynxId.structIndex, dataType));
+         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType);
 	}
 
 	int LynxManager::structVariableCount(int structIndex)
