@@ -302,7 +302,7 @@ namespace LynxLib
 		const char & last() const;
 
 		int count() const;
-		void clear() { _count = 0; }
+		void clear();
 
 		const LynxString & operator = (const LynxString & other);
 		const LynxString & operator = (const char * const other);
@@ -454,7 +454,7 @@ namespace LynxLib
         eEndOfList
     };
 
-    static const LynxString lynsStateTextList[E_LynxState::eEndOfList] =
+    static const LynxString lynxStateTextList[E_LynxState::eEndOfList] =
     {
         "No change",
         "New data received",

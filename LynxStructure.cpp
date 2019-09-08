@@ -89,6 +89,13 @@ namespace LynxLib
 
 		return (_count - 1);
 	}
+	
+	void LynxString::clear()
+	{
+		this->reserve(1);
+		_string[0] = '\0';
+		_count = 1;
+	}
 
 	const LynxString & LynxString::operator=(const LynxString & other)
 	{
@@ -613,7 +620,7 @@ namespace LynxLib
 		{
 			transferSize = int(buffer.at(startIndex)); // If it's a string the first byte should specify the size
 
-			_str->resize(transferSize);
+			_str->clear();
 			_str->append(&buffer.at(startIndex + 1), transferSize);
 			transferSize++; // Increment transfersize for the return variable to be correct
 		}

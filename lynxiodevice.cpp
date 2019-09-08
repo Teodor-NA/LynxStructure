@@ -67,12 +67,12 @@ namespace LynxLib
 
                 this->read();
                 _updateInfo.dataLength = int(_readBuffer.at(3));
-                if(_updateInfo.dataLength != _lynx->transferSize(_updateInfo.lynxId))
-                {
-                    _state = eFindHeader;
-                    _updateInfo.state = eWrongDataLength;
-                    return _updateInfo;
-                }
+                //if(_updateInfo.dataLength != _lynx->transferSize(_updateInfo.lynxId))
+                //{
+                //    _state = eFindHeader;
+                //    _updateInfo.state = eWrongDataLength;
+                //    return _updateInfo;
+                //}
 
                 this->read();
                 _updateInfo.deviceId = _readBuffer.at(4);
@@ -139,7 +139,7 @@ namespace LynxLib
 			}
 		}
 
-		_periodicTransmits.append(LynxPeriodicTransmit(lynxId, interval, 0));
+		_periodicTransmits.append(LynxPeriodicTransmit(lynxId, interval, this->getMillis()));
 		return;
 	}
 
