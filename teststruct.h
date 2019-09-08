@@ -14,11 +14,11 @@ struct TestStructure
         i16Var(lynx, _lynxId),
         u16Var(lynx, _lynxId),
         i32Var(lynx, _lynxId),
+		string(lynx, _lynxId),
         u32Var(lynx, _lynxId),
         i64Var(lynx, _lynxId),
         u64Var(lynx, _lynxId),
         floatVar(lynx, _lynxId)
-		// doubleVar(lynx.addVariable(lynxId, eDouble))
 	{}
 
 	// This macro must be included immediately after the constructor
@@ -32,11 +32,11 @@ struct TestStructure
 	LynxVar_i16 i16Var;
 	LynxVar_u16 u16Var;
 	LynxVar_i32 i32Var;
+	LynxVar_string string;
 	LynxVar_u32 u32Var;
 	LynxVar_i64 i64Var;
 	LynxVar_u64 u64Var;
 	LynxVar_float floatVar;
-	// LynxVar_double doubleVar;
 };
 
 
