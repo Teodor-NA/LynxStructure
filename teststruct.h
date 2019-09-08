@@ -7,25 +7,22 @@ using namespace LynxLib;
 
 struct TestStructure
 {
-    TestStructure(LynxManager & lynx, char _structId) :
-		_lynxId(lynx.addStructure(_structId, 9)),
-        i8Var(lynx, _lynxId),
-        u8Var(lynx, _lynxId),
-        i16Var(lynx, _lynxId),
-        u16Var(lynx, _lynxId),
-        i32Var(lynx, _lynxId),
-		string(lynx, _lynxId),
-        u32Var(lynx, _lynxId),
-        i64Var(lynx, _lynxId),
-        u64Var(lynx, _lynxId),
-        floatVar(lynx, _lynxId)
+    TestStructure(LynxManager & lynx, char _structId, const LynxString & description = "") :
+		_lynxId(lynx.addStructure(_structId, description, 9)),
+        i8Var(lynx, _lynxId, "i8Var"),
+        u8Var(lynx, _lynxId, "u8Var"),
+        i16Var(lynx, _lynxId, "i16Var"),
+        u16Var(lynx, _lynxId, "u16Var"),
+        i32Var(lynx, _lynxId, "i32Var"),
+		string(lynx, _lynxId, "string"),
+        u32Var(lynx, _lynxId, "u32Var"),
+        i64Var(lynx, _lynxId, "i64Var"),
+        u64Var(lynx, _lynxId, "u64Var"),
+        floatVar(lynx, _lynxId, "floatVar")
 	{}
 
 	// This macro must be included immediately after the constructor
 	LYNX_STRUCTURE_MACRO
-
-//private: const LynxId _lynxId; 
-//public: const LynxId & lynxId() { return _lynxId; }
 
 	LynxVar_i8 i8Var;
 	LynxVar_u8 u8Var;

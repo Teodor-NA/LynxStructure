@@ -182,6 +182,16 @@ namespace LynxLib
 		return _string;
 	}
 
+	bool LynxString::operator==(const LynxString & other)
+	{
+		return this->compare(other);
+	}
+
+	bool LynxString::operator!=(const LynxString & other)
+	{
+		return !this->compare(other);
+	}
+
 	void LynxString::reserve(int size)
 	{
 		_count = 0;
@@ -238,6 +248,25 @@ namespace LynxLib
 		temp._count = copySize + 1;
 
 		return temp;
+	}
+
+	bool LynxString::compare(const LynxString & other) const
+	{
+		if ((_count < 2) && (other._count < 2)) // They are both empty or uninitialized
+			return true;
+
+		if (_count != other._count) // If the count is unequal then the strings are unequal
+			return false;
+
+		int cmp = strncmp(_string, other._string, _count); // Compare the strings
+
+		// for (int i = 0; i < (_count - 1); i++) // Check each character in the string
+		// {
+		// 	if (_string[i] != other._string[i])
+		// 		return false;
+		// }
+
+		return (cmp == 0);
 	}
 
 	void LynxString::append(const char & other)
@@ -498,32 +527,76 @@ namespace LynxLib
 		_dataType = eInvalidType;
 		_var = LYNX_NULL;
 		_str = LYNX_NULL;
+		_description = LYNX_NULL;
 	}
 
-	LynxType::LynxType(E_LynxDataType dataType) : LynxType()
+	LynxType::LynxType(E_LynxDataType dataType, const LynxString & description) : LynxType()
 	{
-		this->init(dataType);
+		this->init(dataType, description);
+	}
+
+	LynxType::LynxType(const LynxType & other) : LynxType(other._dataType, *other._description) 
+	{ 
+		*this = other; 
 	}
 
 	LynxType::~LynxType()
 	{
 		if (_var != LYNX_NULL)
+		{
 			delete _var;
+			_var = LYNX_NULL;
+		}
 
 		if (_str != LYNX_NULL)
+		{
 			delete _str;
+			_str = LYNX_NULL;
+		}
+
+		if (_description != LYNX_NULL)
+		{
+			delete _description;
+			_description = LYNX_NULL;
+		}
 	}
 
-	void LynxType::init(E_LynxDataType dataType)
+	void LynxType::init(E_LynxDataType dataType, const LynxString & description)
 	{
 		_dataType = dataType;
 		if (_dataType > eInvalidType)
 		{
 			if (_dataType < eString)
+			{
+				if (_var != LYNX_NULL)
+					delete _var;
 				_var = new LynxUnion();
+			}
 			else if (_dataType == eString)
+			{
+				if (_str != LYNX_NULL)
+					delete _str;
 				_str = new LynxString("");
+			}
 		}
+
+		if (_description != LYNX_NULL)
+			delete _description;
+
+		if (&description == LYNX_NULL)
+			return;
+		if (description.isEmpty())
+			return;
+
+		_description = new LynxString(description);
+	}
+
+	LynxString LynxType::description()
+	{
+		if (_description == LYNX_NULL)
+			return "Not defined";
+		else
+			return *_description;
 	}
 
     int LynxType::toArray(LynxByteArray & buffer, E_LynxState & state) const
@@ -654,8 +727,45 @@ namespace LynxLib
 	}
 
 	//-----------------------------------------------------------------------------------------------------------
-	//-------------------------------------- Static Functions ---------------------------------------------------
+	//----------------------------- Static Functions And Variables  ---------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
+
+	const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList] =
+	{
+		"No change",
+		"New data received",
+		"Data copied to buffer",
+		"Out of sync",
+		"Struct id not found",
+		"Variable index out of bounds",
+		"Buffer too small",
+		"Wrong checksum",
+		"Wrong static header",
+		"Wrong data length",
+		"Data length not found",
+		"No structures in list",
+		"Struct index out of bounds",
+		"Split array failed",
+		"Merge array failed",
+		"Endianness not set",
+		"Unknown error"
+	};
+
+	const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList]
+	{
+		"Invalid type",
+		"8 bit signed int",
+		"8 bit unsigned int",
+		"16 bit signed int",
+		"16 bit unsigned int",
+		"32 bit signed int",
+		"32 bit unsigned int",
+		"64 bit signed int",
+		"64 bit unsigned int",
+		"Float",
+		"Double",
+		"String"
+	};
 
 	int localSize(LynxLib::E_LynxDataType dataType)
 	{
@@ -809,20 +919,64 @@ namespace LynxLib
 	//---------------------------------------- LynxStructure ----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
-	LynxStructure::LynxStructure(int size) : LynxList(size)
+	LynxStructure::LynxStructure() : LynxList()
 	{
-		// _transferSize = 0;
-		// _localSize = 0;
+		_description = LYNX_NULL;
 		_structId = -1;
 	}
 
-	// LynxByteArray LynxStructure::toArray(int variableIndex) const
-	// {
-	// 	LynxByteArray temp;
-	// 	this->toArray(temp, variableIndex);
-	// 
-	// 	return temp;
-	// }
+	LynxStructure::~LynxStructure()
+	{
+		if (_description != LYNX_NULL)
+		{ 
+			delete _description;
+			_description = LYNX_NULL;
+		}
+	}
+
+	void LynxStructure::init(char structId, const LynxString & description, int size)
+	{
+		LynxList::reserve(size);
+
+		_structId = structId;
+
+		if (_description != LYNX_NULL)
+			delete _description;
+		
+		if (&description == LYNX_NULL)
+			return;
+		if (description.isEmpty())
+			return;
+
+		_description = new LynxString(description);
+	}
+
+	void LynxStructure::getInfo(LynxStructInfo & structInfo) const
+	{
+		structInfo.structId = _structId;
+		structInfo.variableCount = _count;
+
+		if (_description == LYNX_NULL)
+			structInfo.description = "Not defined";
+		else
+			structInfo.description = *_description;
+
+		structInfo.variables.reserve(_count);
+		for (int i = 0; i < _count; i++)
+		{
+			structInfo.variables.append();
+			structInfo.variables[i].index = i;
+			structInfo.variables[i].dataType = _data[i].dataType();
+			structInfo.variables[i].description = _data[i].description();
+		}
+	}
+
+	LynxStructInfo LynxStructure::getInfo() const
+	{
+		LynxStructInfo temp;
+		this->getInfo(temp);
+		return temp;
+	}
 
 	E_LynxState LynxStructure::toArray(LynxByteArray & buffer, int variableIndex) const
 	{
@@ -898,10 +1052,10 @@ namespace LynxLib
         this->fromArray(LynxByteArray(buffer, size), lynxInfo);
 	}
 
-	LynxId LynxStructure::addVariable(int structIndex, E_LynxDataType dataType)
+	LynxId LynxStructure::addVariable(int structIndex, E_LynxDataType dataType, const LynxString & description)
 	{
 		this->append();
-		this->last().init(dataType);
+		this->last().init(dataType, description);
 
 		//_transferSize += this->last().transferSize();
 		//_localSize += this->last().localSize();
@@ -986,9 +1140,52 @@ namespace LynxLib
 	//----------------------------------------- LynxManager -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
-	LynxManager::LynxManager(char deviceId, int size) : LynxList(size) { _deviceId = deviceId; }
+	LynxManager::LynxManager(char deviceId, const LynxString & description, int size) : LynxList(size) 
+	{ 
+		_deviceId = deviceId;
+		
+		if (description.isEmpty())
+			return;
 
-    char LynxManager::structId(const LynxId & lynxId)
+		_description = new LynxString(description);
+	}
+
+	LynxManager::~LynxManager()
+	{
+		if (_description != LYNX_NULL)
+		{
+			delete _description;
+			_description = LYNX_NULL;
+		}
+	}
+
+	void LynxManager::getInfo(LynxDeviceInfo & deviceInfo) const
+	{
+		deviceInfo.deviceId = _deviceId;
+		deviceInfo.structCount = _count;
+		deviceInfo.lynxVersion = LYNX_VERSION;
+		
+		if (_description == LYNX_NULL)
+			deviceInfo.description = "Not defined";
+		else
+			deviceInfo.description = *_description;
+
+		deviceInfo.structs.reserve(_count);
+		for (int i = 0; i < _count; i++)
+		{
+			deviceInfo.structs.append();
+			_data[i].getInfo(deviceInfo.structs[i]);
+		}
+	}
+
+	LynxDeviceInfo LynxManager::getInfo() const
+	{
+		LynxDeviceInfo temp;
+		this->getInfo(temp);
+		return temp;
+	}
+
+	char LynxManager::structId(const LynxId & lynxId)
     {
         if((lynxId.structIndex < 0) || (lynxId.structIndex > _count))
             return char(0xff);
@@ -1181,22 +1378,23 @@ namespace LynxLib
 		return _data[lynxId.structIndex].localSize(lynxId.variableIndex);
 	}
 
-	LynxId LynxManager::addStructure(char structId, int size)
+	LynxId LynxManager::addStructure(char structId, const LynxString & description, int size)
 	{
 		LynxId temp;
 		temp.structIndex = this->append();
-		this->last().reserve(size);
-		this->last().setStructId(structId);
+		this->last().init(structId, description, size);
+		// this->last().reserve(size);
+		// this->last().setStructId(structId);
 
 		return temp;
 	}
 
-    LynxId LynxManager::addVariable(const LynxId & parentStruct, E_LynxDataType dataType)
+    LynxId LynxManager::addVariable(const LynxId & parentStruct, E_LynxDataType dataType, const LynxString & description)
 	{
          if ((parentStruct.structIndex < 0) || (parentStruct.structIndex > _count))
             return (LynxId(-1, -1));
 		 	
-         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType);
+         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType, description);
 	}
 
 	int LynxManager::structVariableCount(int structIndex)
