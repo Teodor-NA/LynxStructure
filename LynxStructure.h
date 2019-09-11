@@ -27,6 +27,8 @@ typedef int16_t int8_t
 #define LYNX_HEADER_BYTES 5		// Number of header bytes
 #define LYNX_CHECKSUM_BYTES 1	// Number of checksum bytes
 
+#define LYNX_INTERNALS_HEADER char(255)
+
 #if !defined(ARDUINO) && !defined(TI)
 #define LYNX_INCLUDE_EXCEPTIONS
 #endif // !ARDUINO && !TI
@@ -283,8 +285,36 @@ namespace LynxLib
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
+	//----------------------------------------- LynxByteArray ---------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------
+
+
+	class LynxByteArray : public LynxList<char>
+	{
+	public:
+		LynxByteArray() : LynxList<char>() {}
+		LynxByteArray(int size) : LynxList<char>(size) {}
+		LynxByteArray(const char * charArray, int size);
+		LynxByteArray(const LynxList<char> & other) : LynxList<char>(other) {}
+
+		const char * data() const { return _data; }
+
+		using LynxList::subList;
+		LynxByteArray subList(int startIndex, int endIndex)
+		{
+			LynxByteArray temp;
+			LynxList::subList(temp, startIndex, endIndex);
+			return temp;
+		}
+
+		int toCharArray(char * buffer, int maxSize) const;
+
+	};
+
+	//-----------------------------------------------------------------------------------------------------------
 	//------------------------------------------ LynxString -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
+	
 	class LynxString
 	{
 	public:
@@ -351,7 +381,10 @@ namespace LynxLib
 		// All characters before and including index will be removed
 		void removeTo(int index);
 
+		// Does not include term char
+		int toByteArray(LynxByteArray & byteArray) const;
 		const char * toCharArray() const;
+
 	private:
 		char * _string;
 		int _count;
@@ -410,40 +443,56 @@ namespace LynxLib
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
-	//----------------------------------------- LynxByteArray ---------------------------------------------------
+	//---------------------------------------- LynxRingBuffer ---------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
+	enum E_LynxRingBufferMode
+	{
+		eAutogrow = 0,		// Automatically grow the buffer if it is full
+		eFixedOverwrite,	// Buffer has fixed size determined on construction (or with reserve()/resize()), old data is overwritten if it is full
+		eFixedRefuse		// Buffer has fixed size determined on construction (or with reserve()/resize()), new data is ignored if it is full
+	};
 
-	class LynxByteArray : public LynxList<char>
+	class LynxRingBuffer
 	{
 	public:
-		LynxByteArray() : LynxList<char>() {}
-		LynxByteArray(int size) : LynxList<char>(size) {}
-		LynxByteArray(const char * charArray, int size);
-		LynxByteArray(const LynxList<char> & other) : LynxList<char>(other) {}
+		LynxRingBuffer(int size = 0, E_LynxRingBufferMode mode = eAutogrow);
+		~LynxRingBuffer();
 
-		const char * data() const { return _data; }
+		void reserve(int size);
+		void resize(int size);
 
-		using LynxList::subList;
-		LynxByteArray subList(int startIndex, int endIndex)
-		{
-			LynxByteArray temp;
-			LynxList::subList(temp, startIndex, endIndex);
-			return temp;
-		}
+		char read();
+		int read(LynxByteArray & buffer, int size = -1);
+		void write(char data);
+		int write(const LynxByteArray & buffer, int size = -1, int startIndex = 0);
+		
+		int count() const { return _count; }
 
-		int toCharArray(char * buffer, int maxSize) const;
-
+	private:
+		char * _data;
+		int _readIndex;
+		int _writeIndex;
+		int _reservedCount;
+		int _count;
+		const E_LynxRingBufferMode _mode;
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
 	//---------------------------------------------- Types ------------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
+	enum E_LynxInternals
+	{
+		eInvalidInternal = 0,
+		eDeviceInfo
+	};
+
     enum E_LynxState
     {
         eNoChange = 0,
         eNewDataReceived,
+		eNewDeviceInfoReceived,
 		eDataCopiedToBuffer,
         eOutOfSync,
         eStructIdNotFound,
@@ -635,7 +684,6 @@ namespace LynxLib
 		LynxId lynxId;
 		int dataLength;
         E_LynxState state;
-
 	};
 
 	//-----------------------------------------------------------------------------------------------------------

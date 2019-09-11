@@ -8,6 +8,162 @@ namespace LynxLib
 #endif // LYNX_INCLUDE_EXCEPTIONS
 	
 	//-----------------------------------------------------------------------------------------------------------
+	//---------------------------------------- LynxRingBuffer ---------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------
+
+	LynxRingBuffer::LynxRingBuffer(int size, E_LynxRingBufferMode mode) : _mode(mode)
+	{
+		_count = 0;
+		_reservedCount = 0;
+		_readIndex = 0;
+		_writeIndex = 0;
+		_data = LYNX_NULL;
+
+		this->reserve(size);
+	}
+
+	LynxRingBuffer::~LynxRingBuffer()
+	{
+		if (_data != LYNX_NULL)
+		{
+			delete[] _data;
+			_data = LYNX_NULL;
+		}
+	}
+
+	void LynxRingBuffer::reserve(int size)
+	{
+		_count = 0;
+
+		if (size <= _reservedCount)
+			return;
+
+		if (_data != LYNX_NULL)
+		{
+			delete[] _data;
+			_data = LYNX_NULL;
+		}
+
+		_reservedCount = size;
+		_data = new char[_reservedCount];
+	}
+
+	void LynxRingBuffer::resize(int size)
+	{
+		if (size <= _reservedCount)
+			return;
+
+		if (_count < 1)
+		{
+			this->reserve(size);
+			return;
+		}
+
+		// As the buffer may be fragmented, we will make a temporary buffer to transfer the data
+		LynxByteArray temp(_count);
+		while (_count > 0)
+		{
+			temp.append(this->read());
+		}
+
+		this->reserve(size);
+
+		memcpy(_data, temp.data(), temp.count());
+
+		_readIndex = 0;
+		_writeIndex = _count = temp.count();
+	}
+
+	char LynxRingBuffer::read()
+	{
+		if (_count < 1)
+			return 0;
+
+		if (_readIndex >= _reservedCount)
+			_readIndex = 0;
+
+		char temp = _data[_readIndex];
+		
+		_readIndex++;
+		_count--;
+
+		return temp;
+	}
+
+	int LynxRingBuffer::read(LynxByteArray & buffer, int size)
+	{
+		int length;
+		if (size < 0)
+			length = _count;
+		else
+			length = (size > _count) ? _count : size;
+
+		buffer.resize(buffer.count() + length);
+		for (int i = 0; i < length; i++)
+		{
+			buffer.append(this->read());
+		}
+
+		return length;
+	}
+
+	void LynxRingBuffer::write(char data)
+	{
+		if (_count >= _reservedCount)
+		{
+			switch (_mode)
+			{
+			case LynxLib::eAutogrow:
+				this->resize(_count + 1);
+				break;
+			case LynxLib::eFixedOverwrite:
+				break;
+			case LynxLib::eFixedRefuse:
+				return;
+			default:
+				return;
+			}
+		}
+
+		if (_writeIndex >= _reservedCount)
+			_writeIndex = 0;
+
+		_data[_writeIndex] = data;
+
+		_writeIndex++;
+		_count++;
+	}
+
+	int LynxRingBuffer::write(const LynxByteArray & buffer, int size, int startIndex)
+	{
+		if (startIndex >= buffer.count())
+			return 0;
+
+		int length;
+		if (size < 0)
+			length = buffer.count();
+		else
+			length = (size > (buffer.count() - startIndex)) ? (buffer.count() - startIndex) : size;
+		
+		switch (_mode)
+		{
+		case LynxLib::eAutogrow:
+			this->resize(_count + length);
+			break;
+		default:
+			break;
+		}
+
+
+		for (int i = 0; i < length; i++)
+		{
+			this->write(buffer.at(i + startIndex));
+		}
+
+		return length;
+	}
+
+	//-----------------------------------------------------------------------------------------------------------
 	//------------------------------------------ LynxString -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
@@ -412,6 +568,17 @@ namespace LynxLib
 		this->remove(0, index);
 	}
 
+	int LynxString::toByteArray(LynxByteArray & byteArray) const
+	{
+		byteArray.resize(byteArray.count() + _count - 1);
+		for (int i = 0; i < (_count - 1); i++)
+		{
+			byteArray.append(_string[i]);
+		}
+
+		return (_count - 1);
+	}
+
 	const char * LynxString::toCharArray() const
 	{
 		if (_count < 1)
@@ -734,6 +901,7 @@ namespace LynxLib
 	{
 		"No change",
 		"New data received",
+		"New device info received",
 		"Data copied to buffer",
 		"Out of sync",
 		"Struct id not found",
@@ -1248,6 +1416,18 @@ namespace LynxLib
 
 	E_LynxState LynxManager::toArray(LynxByteArray & buffer, const LynxId & lynxId) const
 	{
+		// |  Description   |    Size    |     Index    | Contents |
+		// ---------------------------------------------------------
+		// | Static header  |     1      |       0      |   'A'    |
+		// |   Struct Id    |     1      |       1      | 0 -> 254 |
+		// | Variable index |     1      |       2      | 0 -> 255 |
+		// |  Data length   |     1      |       3      | 0 -> 255 |
+		// |   Device Id    |     1      |       4      | 0 -> 255 |
+		// |     Data       | dataLength | 5 -> (n - 2) |    -     |
+		// |   Checksum     |     1      |    (n - 1)   | 0 -> 255 |
+
+		// n = 5 + dataLength + 1
+
 		if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
 			return eStructIndexOutOfBounds;
 
@@ -1414,5 +1594,4 @@ namespace LynxLib
 		}
 		return -1;
 	}
-	// LynxManager Lynx;
 }

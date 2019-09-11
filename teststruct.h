@@ -1,5 +1,5 @@
-#ifndef TEST_STRUCT
-#define TEST_STRUCT
+#ifndef TEST_STRUCT_H
+#define TEST_STRUCT_H
 
 #include "lynxstructure.h"
 
@@ -9,16 +9,16 @@ struct TestStructure
 {
     TestStructure(LynxManager & lynx, char _structId, const LynxString & description = "") :
 		_lynxId(lynx.addStructure(_structId, description, 9)),
-        i8Var(lynx, _lynxId, "i8Var"),
-        u8Var(lynx, _lynxId, "u8Var"),
-        i16Var(lynx, _lynxId, "i16Var"),
-        u16Var(lynx, _lynxId, "u16Var"),
-        i32Var(lynx, _lynxId, "i32Var"),
+        i8Var(lynx, _lynxId, "i8 variable"),
+        u8Var(lynx, _lynxId, "u8 variable"),
+        i16Var(lynx, _lynxId, "i16 variable"),
+        u16Var(lynx, _lynxId, "u16 variable"),
+        i32Var(lynx, _lynxId, "i32 variable"),
 		string(lynx, _lynxId, "string"),
-        u32Var(lynx, _lynxId, "u32Var"),
-        i64Var(lynx, _lynxId, "i64Var"),
-        u64Var(lynx, _lynxId, "u64Var"),
-        floatVar(lynx, _lynxId, "floatVar")
+        u32Var(lynx, _lynxId, "u32 variable"),
+        i64Var(lynx, _lynxId, "i64 variable"),
+        u64Var(lynx, _lynxId, "u64 variable"),
+        floatVar(lynx, _lynxId, "float variable")
 	{}
 
 	// This macro must be included immediately after the constructor
@@ -37,4 +37,4 @@ struct TestStructure
 };
 
 
-#endif // !TEST_STRUCT
+#endif // !TEST_STRUCT_H
