@@ -330,6 +330,13 @@ namespace LynxLib
 		return temp;
 	}
 
+	LynxString operator+(const char * const otherCharArray, const LynxString & otherString)
+	{
+		LynxString temp(otherCharArray);
+		temp.append(otherString);
+		return temp;
+	}
+
 	LynxString::operator const char*const() const
 	{
 		if (_count < 2)
@@ -699,7 +706,7 @@ namespace LynxLib
 
 	LynxType::LynxType(E_LynxDataType dataType, const LynxString & description) : LynxType()
 	{
-		this->init(dataType, description);
+		this->init(dataType, &description);
 	}
 
 	LynxType::LynxType(const LynxType & other) : LynxType(other._dataType, *other._description) 
@@ -728,7 +735,7 @@ namespace LynxLib
 		}
 	}
 
-	void LynxType::init(E_LynxDataType dataType, const LynxString & description)
+	void LynxType::init(E_LynxDataType dataType, const LynxString * const description)
 	{
 		_dataType = dataType;
 		if (_dataType > eInvalidType)
@@ -750,12 +757,12 @@ namespace LynxLib
 		if (_description != LYNX_NULL)
 			delete _description;
 
-		if (&description == LYNX_NULL)
+		if (description == LYNX_NULL)
 			return;
-		if (description.isEmpty())
+		if (description->isEmpty())
 			return;
 
-		_description = new LynxString(description);
+		_description = new LynxString(*description);
 	}
 
 	LynxString LynxType::description()
@@ -902,6 +909,7 @@ namespace LynxLib
 		"No change",
 		"New data received",
 		"New device info received",
+		"Scan received",
 		"Data copied to buffer",
 		"Out of sync",
 		"Struct id not found",
@@ -997,12 +1005,29 @@ namespace LynxLib
 		return 0;
 	}
 
-	LynxString operator+(const char * const otherCharArray, const LynxString & otherString)
+	bool checkChecksum(const LynxByteArray & buffer)
 	{
-		LynxString temp(otherCharArray);
-		temp.append(otherString);
-		return temp;
+		char checksum = 0;
+		for (int i = 0; i < (buffer.count() - 1); i++)
+		{
+			checksum += buffer.at(i);
+		}
+
+		return ((checksum & 0xff) == (buffer.last() & 0xff));
 	}
+
+	void addChecksum(LynxByteArray & buffer)
+	{
+		char checksum = 0;
+		for (int i = 0; i < buffer.count(); i++)
+		{
+			checksum += buffer.at(i);
+		}
+
+		buffer.append(checksum);
+	}
+
+
 
 	int splitArray(LynxByteArray & buffer, int desiredSize)
 	{
@@ -1102,7 +1127,7 @@ namespace LynxLib
 		}
 	}
 
-	void LynxStructure::init(char structId, const LynxString & description, int size)
+	void LynxStructure::init(char structId, const LynxString * const description, int size)
 	{
 		LynxList::reserve(size);
 
@@ -1111,12 +1136,12 @@ namespace LynxLib
 		if (_description != LYNX_NULL)
 			delete _description;
 		
-		if (&description == LYNX_NULL)
-			return;
-		if (description.isEmpty())
+         if (description == LYNX_NULL)
+         	return;
+		if (description->isEmpty())
 			return;
 
-		_description = new LynxString(description);
+		_description = new LynxString(*description);
 	}
 
 	void LynxStructure::getInfo(LynxStructInfo & structInfo) const
@@ -1223,7 +1248,7 @@ namespace LynxLib
 	LynxId LynxStructure::addVariable(int structIndex, E_LynxDataType dataType, const LynxString & description)
 	{
 		this->append();
-		this->last().init(dataType, description);
+		this->last().init(dataType, &description);
 
 		//_transferSize += this->last().transferSize();
 		//_localSize += this->last().localSize();
@@ -1302,6 +1327,16 @@ namespace LynxLib
 		}
 
 		return _count;
+	}
+
+	int LynxByteArray::fromCharArray(const char * const buffer, int size)
+	{
+		if (size < 1)
+			return 0;
+		this->resize(_count + size);
+		memcpy(&_data[_count], buffer, size);
+		_count += size;
+		return size;
 	}
 
 	//-----------------------------------------------------------------------------------------------------------
@@ -1448,13 +1483,15 @@ namespace LynxLib
 		if (state != eDataCopiedToBuffer)
 			return state;
 
-		char checksum = 0;
-		for (int i = 0; i < buffer.count(); i++)
-		{
-			checksum += buffer.at(i);
-		}
+		addChecksum(buffer);
 
-		buffer.append(checksum & char(0xff));
+		//char checksum = 0;
+		//for (int i = 0; i < buffer.count(); i++)
+		//{
+		//	checksum += buffer.at(i);
+		//}
+		//
+		//buffer.append(checksum & char(0xff));
 
 		return state;
 	}
@@ -1510,18 +1547,21 @@ namespace LynxLib
 		}
 
 		// Calculate the checksum
-		int checksumIndex = totalSize - 1;
-		char checksum = 0;
-		for (int i = 0; i < checksumIndex; i++)
-		{
-			checksum += buffer.at(i);
-		}
+		//int checksumIndex = totalSize - 1;
+		//char checksum = 0;
+		//for (int i = 0; i < checksumIndex; i++)
+		//{
+		//	checksum += buffer.at(i);
+		//}
+		
 		// Check the checksum
-		if ((checksum & 0xff) != (buffer.at(checksumIndex) & 0xff))
+		if (!checkChecksum(buffer))
 		{
 			lynxInfo.state = eWrongChecksum;
 			return;
 		}
+
+
 
 		// Make a temporary buffer and extract the data
         // LynxByteArray temp;
@@ -1562,7 +1602,7 @@ namespace LynxLib
 	{
 		LynxId temp;
 		temp.structIndex = this->append();
-		this->last().init(structId, description, size);
+		this->last().init(structId, &description, size);
 		// this->last().reserve(size);
 		// this->last().setStructId(structId);
 

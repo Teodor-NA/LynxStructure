@@ -11,6 +11,7 @@ namespace LynxLib
         eFindStructId,
         eGetInfo,
 		eInternals,
+		eGetScan,
 		eGetDeviceInfo,
 		eGetDeviceData,
         eGetData
@@ -51,6 +52,9 @@ namespace LynxLib
         virtual bool open(int port, unsigned long baudRate) = 0;
         virtual void close() = 0;
 
+		// Scan the bus for devices
+		void scan();
+
         const LynxByteArray & readBuffer() const { return _readBuffer; }
         const LynxByteArray & writeBuffer() const { return _writeBuffer; }
 
@@ -58,7 +62,7 @@ namespace LynxLib
 		void periodicTransmitStart(const LynxId & lynxId, uint32_t interval);
 		void periodicTransmitStop(const LynxId & lynxId);
 
-		const LynxDeviceInfo & lynxDeviceInfo() { return _deviceInfo; };
+		LynxDeviceInfo lynxDeviceInfo();
 
 	protected:
 		E_SerialState _state;
@@ -79,7 +83,8 @@ namespace LynxLib
 
 		void readDeviceInfo();
 
-		LynxDeviceInfo _deviceInfo;
+		LynxDeviceInfo * _deviceInfo;
+		bool _deleteDeviceInfo;
 
 		LynxByteArray _readBuffer;
 		LynxByteArray _writeBuffer;

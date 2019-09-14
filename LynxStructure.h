@@ -308,6 +308,7 @@ namespace LynxLib
 		}
 
 		int toCharArray(char * buffer, int maxSize) const;
+		int fromCharArray(const char * const buffer, int size);
 
 	};
 
@@ -485,7 +486,8 @@ namespace LynxLib
 	enum E_LynxInternals
 	{
 		eInvalidInternal = 0,
-		eDeviceInfo
+		eDeviceInfo,
+		eScan
 	};
 
     enum E_LynxState
@@ -493,6 +495,7 @@ namespace LynxLib
         eNoChange = 0,
         eNewDataReceived,
 		eNewDeviceInfoReceived,
+		eScanReceived,
 		eDataCopiedToBuffer,
         eOutOfSync,
         eStructIdNotFound,
@@ -584,7 +587,7 @@ namespace LynxLib
 		LynxType(const LynxType & other);// : LynxType(other._dataType, other._description) { *this = other; }
 		~LynxType();
 
-		void init(E_LynxDataType dataType, const LynxString & description = "");
+		void init(E_LynxDataType dataType, const LynxString * const description);
 
 		LynxString description();
 		// void getInfo(LynxVariableInfo & variableInfo) const;
@@ -632,7 +635,7 @@ namespace LynxLib
 				return *this;
 
 			if (_dataType == eInvalidType)
-				this->init(other._dataType, *other._description);
+				this->init(other._dataType, other._description);
 
 			if ((_var != LYNX_NULL) && (other._var != LYNX_NULL))
 				_var->_var_i64 = other._var->_var_i64;
@@ -700,6 +703,9 @@ namespace LynxLib
 
 	int transferSize(E_LynxDataType dataType);
 
+	bool checkChecksum(const LynxByteArray & buffer);
+	void addChecksum(LynxByteArray & buffer);
+
 	//-----------------------------------------------------------------------------------------------------------
 	//---------------------------------------- LynxStructure ----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
@@ -712,7 +718,7 @@ namespace LynxLib
 
 		const LynxStructure & operator = (const LynxStructure & other)
 		{
-			this->init(other._structId, *other._description, other._count);
+			this->init(other._structId, other._description, other._count);
 
 			LynxList::operator=(other);
 			
@@ -724,7 +730,7 @@ namespace LynxLib
 		using LynxList::count;
 		using LynxList::reserve;
 
-		void init(char structId, const LynxString & description = "", int size = 0);
+		void init(char structId, const LynxString * const description, int size = 0);
 
 		void getInfo(LynxStructInfo & structInfo) const;
 		LynxStructInfo getInfo() const;
