@@ -8,6 +8,162 @@ namespace LynxLib
 #endif // LYNX_INCLUDE_EXCEPTIONS
 	
 	//-----------------------------------------------------------------------------------------------------------
+	//---------------------------------------- LynxRingBuffer ---------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------
+
+	LynxRingBuffer::LynxRingBuffer(int size, E_LynxRingBufferMode mode) : _mode(mode)
+	{
+		_count = 0;
+		_reservedCount = 0;
+		_readIndex = 0;
+		_writeIndex = 0;
+		_data = LYNX_NULL;
+
+		this->reserve(size);
+	}
+
+	LynxRingBuffer::~LynxRingBuffer()
+	{
+		if (_data != LYNX_NULL)
+		{
+			delete[] _data;
+			_data = LYNX_NULL;
+		}
+	}
+
+	void LynxRingBuffer::reserve(int size)
+	{
+		_count = 0;
+
+		if (size <= _reservedCount)
+			return;
+
+		if (_data != LYNX_NULL)
+		{
+			delete[] _data;
+			_data = LYNX_NULL;
+		}
+
+		_reservedCount = size;
+		_data = new char[_reservedCount];
+	}
+
+	void LynxRingBuffer::resize(int size)
+	{
+		if (size <= _reservedCount)
+			return;
+
+		if (_count < 1)
+		{
+			this->reserve(size);
+			return;
+		}
+
+		// As the buffer may be fragmented, we will make a temporary buffer to transfer the data
+		LynxByteArray temp(_count);
+		while (_count > 0)
+		{
+			temp.append(this->read());
+		}
+
+		this->reserve(size);
+
+		memcpy(_data, temp.data(), temp.count());
+
+		_readIndex = 0;
+		_writeIndex = _count = temp.count();
+	}
+
+	char LynxRingBuffer::read()
+	{
+		if (_count < 1)
+			return 0;
+
+		if (_readIndex >= _reservedCount)
+			_readIndex = 0;
+
+		char temp = _data[_readIndex];
+		
+		_readIndex++;
+		_count--;
+
+		return temp;
+	}
+
+	int LynxRingBuffer::read(LynxByteArray & buffer, int size)
+	{
+		int length;
+		if (size < 0)
+			length = _count;
+		else
+			length = (size > _count) ? _count : size;
+
+		buffer.resize(buffer.count() + length);
+		for (int i = 0; i < length; i++)
+		{
+			buffer.append(this->read());
+		}
+
+		return length;
+	}
+
+	void LynxRingBuffer::write(char data)
+	{
+		if (_count >= _reservedCount)
+		{
+			switch (_mode)
+			{
+			case LynxLib::eAutogrow:
+				this->resize(_count + 1);
+				break;
+			case LynxLib::eFixedOverwrite:
+				break;
+			case LynxLib::eFixedRefuse:
+				return;
+			default:
+				return;
+			}
+		}
+
+		if (_writeIndex >= _reservedCount)
+			_writeIndex = 0;
+
+		_data[_writeIndex] = data;
+
+		_writeIndex++;
+		_count++;
+	}
+
+	int LynxRingBuffer::write(const LynxByteArray & buffer, int size, int startIndex)
+	{
+		if (startIndex >= buffer.count())
+			return 0;
+
+		int length;
+		if (size < 0)
+			length = buffer.count();
+		else
+			length = (size > (buffer.count() - startIndex)) ? (buffer.count() - startIndex) : size;
+		
+		switch (_mode)
+		{
+		case LynxLib::eAutogrow:
+			this->resize(_count + length);
+			break;
+		default:
+			break;
+		}
+
+
+		for (int i = 0; i < length; i++)
+		{
+			this->write(buffer.at(i + startIndex));
+		}
+
+		return length;
+	}
+
+	//-----------------------------------------------------------------------------------------------------------
 	//------------------------------------------ LynxString -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
@@ -174,12 +330,29 @@ namespace LynxLib
 		return temp;
 	}
 
+	LynxString operator+(const char * const otherCharArray, const LynxString & otherString)
+	{
+		LynxString temp(otherCharArray);
+		temp.append(otherString);
+		return temp;
+	}
+
 	LynxString::operator const char*const() const
 	{
 		if (_count < 2)
 			return "";
 
 		return _string;
+	}
+
+	bool LynxString::operator==(const LynxString & other)
+	{
+		return this->compare(other);
+	}
+
+	bool LynxString::operator!=(const LynxString & other)
+	{
+		return !this->compare(other);
 	}
 
 	void LynxString::reserve(int size)
@@ -238,6 +411,25 @@ namespace LynxLib
 		temp._count = copySize + 1;
 
 		return temp;
+	}
+
+	bool LynxString::compare(const LynxString & other) const
+	{
+		if ((_count < 2) && (other._count < 2)) // They are both empty or uninitialized
+			return true;
+
+		if (_count != other._count) // If the count is unequal then the strings are unequal
+			return false;
+
+		int cmp = strncmp(_string, other._string, _count); // Compare the strings
+
+		// for (int i = 0; i < (_count - 1); i++) // Check each character in the string
+		// {
+		// 	if (_string[i] != other._string[i])
+		// 		return false;
+		// }
+
+		return (cmp == 0);
 	}
 
 	void LynxString::append(const char & other)
@@ -383,6 +575,17 @@ namespace LynxLib
 		this->remove(0, index);
 	}
 
+	int LynxString::toByteArray(LynxByteArray & byteArray) const
+	{
+		byteArray.resize(byteArray.count() + _count - 1);
+		for (int i = 0; i < (_count - 1); i++)
+		{
+			byteArray.append(_string[i]);
+		}
+
+		return (_count - 1);
+	}
+
 	const char * LynxString::toCharArray() const
 	{
 		if (_count < 1)
@@ -498,32 +701,76 @@ namespace LynxLib
 		_dataType = eInvalidType;
 		_var = LYNX_NULL;
 		_str = LYNX_NULL;
+		_description = LYNX_NULL;
 	}
 
-	LynxType::LynxType(E_LynxDataType dataType) : LynxType()
+	LynxType::LynxType(E_LynxDataType dataType, const LynxString & description) : LynxType()
 	{
-		this->init(dataType);
+		this->init(dataType, &description);
+	}
+
+	LynxType::LynxType(const LynxType & other) : LynxType(other._dataType, *other._description) 
+	{ 
+		*this = other; 
 	}
 
 	LynxType::~LynxType()
 	{
 		if (_var != LYNX_NULL)
+		{
 			delete _var;
+			_var = LYNX_NULL;
+		}
 
 		if (_str != LYNX_NULL)
+		{
 			delete _str;
+			_str = LYNX_NULL;
+		}
+
+		if (_description != LYNX_NULL)
+		{
+			delete _description;
+			_description = LYNX_NULL;
+		}
 	}
 
-	void LynxType::init(E_LynxDataType dataType)
+	void LynxType::init(E_LynxDataType dataType, const LynxString * const description)
 	{
 		_dataType = dataType;
 		if (_dataType > eInvalidType)
 		{
 			if (_dataType < eString)
+			{
+				if (_var != LYNX_NULL)
+					delete _var;
 				_var = new LynxUnion();
+			}
 			else if (_dataType == eString)
+			{
+				if (_str != LYNX_NULL)
+					delete _str;
 				_str = new LynxString("");
+			}
 		}
+
+		if (_description != LYNX_NULL)
+			delete _description;
+
+		if (description == LYNX_NULL)
+			return;
+		if (description->isEmpty())
+			return;
+
+		_description = new LynxString(*description);
+	}
+
+	LynxString LynxType::description()
+	{
+		if (_description == LYNX_NULL)
+			return "Not defined";
+		else
+			return *_description;
 	}
 
     int LynxType::toArray(LynxByteArray & buffer, E_LynxState & state) const
@@ -654,8 +901,47 @@ namespace LynxLib
 	}
 
 	//-----------------------------------------------------------------------------------------------------------
-	//-------------------------------------- Static Functions ---------------------------------------------------
+	//----------------------------- Static Functions And Variables  ---------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
+
+	const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList] =
+	{
+		"No change",
+		"New data received",
+		"New device info received",
+		"Scan received",
+		"Data copied to buffer",
+		"Out of sync",
+		"Struct id not found",
+		"Variable index out of bounds",
+		"Buffer too small",
+		"Wrong checksum",
+		"Wrong static header",
+		"Wrong data length",
+		"Data length not found",
+		"No structures in list",
+		"Struct index out of bounds",
+		"Split array failed",
+		"Merge array failed",
+		"Endianness not set",
+		"Unknown error"
+	};
+
+	const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList]
+	{
+		"Invalid type",
+		"8 bit signed int",
+		"8 bit unsigned int",
+		"16 bit signed int",
+		"16 bit unsigned int",
+		"32 bit signed int",
+		"32 bit unsigned int",
+		"64 bit signed int",
+		"64 bit unsigned int",
+		"Float",
+		"Double",
+		"String"
+	};
 
 	int localSize(LynxLib::E_LynxDataType dataType)
 	{
@@ -719,12 +1005,29 @@ namespace LynxLib
 		return 0;
 	}
 
-	LynxString operator+(const char * const otherCharArray, const LynxString & otherString)
+	bool checkChecksum(const LynxByteArray & buffer)
 	{
-		LynxString temp(otherCharArray);
-		temp.append(otherString);
-		return temp;
+		char checksum = 0;
+		for (int i = 0; i < (buffer.count() - 1); i++)
+		{
+			checksum += buffer.at(i);
+		}
+
+		return ((checksum & 0xff) == (buffer.last() & 0xff));
 	}
+
+	void addChecksum(LynxByteArray & buffer)
+	{
+		char checksum = 0;
+		for (int i = 0; i < buffer.count(); i++)
+		{
+			checksum += buffer.at(i);
+		}
+
+		buffer.append(checksum);
+	}
+
+
 
 	int splitArray(LynxByteArray & buffer, int desiredSize)
 	{
@@ -809,20 +1112,64 @@ namespace LynxLib
 	//---------------------------------------- LynxStructure ----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
-	LynxStructure::LynxStructure(int size) : LynxList(size)
+	LynxStructure::LynxStructure() : LynxList()
 	{
-		// _transferSize = 0;
-		// _localSize = 0;
+		_description = LYNX_NULL;
 		_structId = -1;
 	}
 
-	// LynxByteArray LynxStructure::toArray(int variableIndex) const
-	// {
-	// 	LynxByteArray temp;
-	// 	this->toArray(temp, variableIndex);
-	// 
-	// 	return temp;
-	// }
+	LynxStructure::~LynxStructure()
+	{
+		if (_description != LYNX_NULL)
+		{ 
+			delete _description;
+			_description = LYNX_NULL;
+		}
+	}
+
+	void LynxStructure::init(char structId, const LynxString * const description, int size)
+	{
+		LynxList::reserve(size);
+
+		_structId = structId;
+
+		if (_description != LYNX_NULL)
+			delete _description;
+		
+         if (description == LYNX_NULL)
+         	return;
+		if (description->isEmpty())
+			return;
+
+		_description = new LynxString(*description);
+	}
+
+	void LynxStructure::getInfo(LynxStructInfo & structInfo) const
+	{
+		structInfo.structId = _structId;
+		structInfo.variableCount = _count;
+
+		if (_description == LYNX_NULL)
+			structInfo.description = "Not defined";
+		else
+			structInfo.description = *_description;
+
+		structInfo.variables.reserve(_count);
+		for (int i = 0; i < _count; i++)
+		{
+			structInfo.variables.append();
+			structInfo.variables[i].index = i;
+			structInfo.variables[i].dataType = _data[i].dataType();
+			structInfo.variables[i].description = _data[i].description();
+		}
+	}
+
+	LynxStructInfo LynxStructure::getInfo() const
+	{
+		LynxStructInfo temp;
+		this->getInfo(temp);
+		return temp;
+	}
 
 	E_LynxState LynxStructure::toArray(LynxByteArray & buffer, int variableIndex) const
 	{
@@ -898,10 +1245,10 @@ namespace LynxLib
         this->fromArray(LynxByteArray(buffer, size), lynxInfo);
 	}
 
-	LynxId LynxStructure::addVariable(int structIndex, E_LynxDataType dataType)
+	LynxId LynxStructure::addVariable(int structIndex, E_LynxDataType dataType, const LynxString & description)
 	{
 		this->append();
-		this->last().init(dataType);
+		this->last().init(dataType, &description);
 
 		//_transferSize += this->last().transferSize();
 		//_localSize += this->last().localSize();
@@ -982,13 +1329,66 @@ namespace LynxLib
 		return _count;
 	}
 
+	int LynxByteArray::fromCharArray(const char * const buffer, int size)
+	{
+		if (size < 1)
+			return 0;
+		this->resize(_count + size);
+		memcpy(&_data[_count], buffer, size);
+		_count += size;
+		return size;
+	}
+
 	//-----------------------------------------------------------------------------------------------------------
 	//----------------------------------------- LynxManager -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
-	LynxManager::LynxManager(char deviceId, int size) : LynxList(size) { _deviceId = deviceId; }
+	LynxManager::LynxManager(char deviceId, const LynxString & description, int size) : LynxList(size) 
+	{ 
+		_deviceId = deviceId;
+		
+		if (description.isEmpty())
+			return;
 
-    char LynxManager::structId(const LynxId & lynxId)
+		_description = new LynxString(description);
+	}
+
+	LynxManager::~LynxManager()
+	{
+		if (_description != LYNX_NULL)
+		{
+			delete _description;
+			_description = LYNX_NULL;
+		}
+	}
+
+	void LynxManager::getInfo(LynxDeviceInfo & deviceInfo) const
+	{
+		deviceInfo.deviceId = _deviceId;
+		deviceInfo.structCount = _count;
+		deviceInfo.lynxVersion = LYNX_VERSION;
+		
+		if (_description == LYNX_NULL)
+			deviceInfo.description = "Not defined";
+		else
+			deviceInfo.description = *_description;
+
+		deviceInfo.structs.reserve(_count);
+		for (int i = 0; i < _count; i++)
+		{
+			deviceInfo.structs.append();
+			_data[i].getInfo(deviceInfo.structs[i]);
+		}
+	}
+
+	LynxDeviceInfo LynxManager::getInfo() const
+	{
+		LynxDeviceInfo temp;
+		this->getInfo(temp);
+		return temp;
+	}
+
+	char LynxManager::structId(const LynxId & lynxId)
     {
         if((lynxId.structIndex < 0) || (lynxId.structIndex > _count))
             return char(0xff);
@@ -1051,6 +1451,18 @@ namespace LynxLib
 
 	E_LynxState LynxManager::toArray(LynxByteArray & buffer, const LynxId & lynxId) const
 	{
+		// |  Description   |    Size    |     Index    | Contents |
+		// ---------------------------------------------------------
+		// | Static header  |     1      |       0      |   'A'    |
+		// |   Struct Id    |     1      |       1      | 0 -> 254 |
+		// | Variable index |     1      |       2      | 0 -> 255 |
+		// |  Data length   |     1      |       3      | 0 -> 255 |
+		// |   Device Id    |     1      |       4      | 0 -> 255 |
+		// |     Data       | dataLength | 5 -> (n - 2) |    -     |
+		// |   Checksum     |     1      |    (n - 1)   | 0 -> 255 |
+
+		// n = 5 + dataLength + 1
+
 		if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
 			return eStructIndexOutOfBounds;
 
@@ -1071,13 +1483,15 @@ namespace LynxLib
 		if (state != eDataCopiedToBuffer)
 			return state;
 
-		char checksum = 0;
-		for (int i = 0; i < buffer.count(); i++)
-		{
-			checksum += buffer.at(i);
-		}
+		addChecksum(buffer);
 
-		buffer.append(checksum & char(0xff));
+		//char checksum = 0;
+		//for (int i = 0; i < buffer.count(); i++)
+		//{
+		//	checksum += buffer.at(i);
+		//}
+		//
+		//buffer.append(checksum & char(0xff));
 
 		return state;
 	}
@@ -1133,18 +1547,21 @@ namespace LynxLib
 		}
 
 		// Calculate the checksum
-		int checksumIndex = totalSize - 1;
-		char checksum = 0;
-		for (int i = 0; i < checksumIndex; i++)
-		{
-			checksum += buffer.at(i);
-		}
+		//int checksumIndex = totalSize - 1;
+		//char checksum = 0;
+		//for (int i = 0; i < checksumIndex; i++)
+		//{
+		//	checksum += buffer.at(i);
+		//}
+		
 		// Check the checksum
-		if ((checksum & 0xff) != (buffer.at(checksumIndex) & 0xff))
+		if (!checkChecksum(buffer))
 		{
 			lynxInfo.state = eWrongChecksum;
 			return;
 		}
+
+
 
 		// Make a temporary buffer and extract the data
         // LynxByteArray temp;
@@ -1181,22 +1598,23 @@ namespace LynxLib
 		return _data[lynxId.structIndex].localSize(lynxId.variableIndex);
 	}
 
-	LynxId LynxManager::addStructure(char structId, int size)
+	LynxId LynxManager::addStructure(char structId, const LynxString & description, int size)
 	{
 		LynxId temp;
 		temp.structIndex = this->append();
-		this->last().reserve(size);
-		this->last().setStructId(structId);
+		this->last().init(structId, &description, size);
+		// this->last().reserve(size);
+		// this->last().setStructId(structId);
 
 		return temp;
 	}
 
-    LynxId LynxManager::addVariable(const LynxId & parentStruct, E_LynxDataType dataType)
+    LynxId LynxManager::addVariable(const LynxId & parentStruct, E_LynxDataType dataType, const LynxString & description)
 	{
          if ((parentStruct.structIndex < 0) || (parentStruct.structIndex > _count))
             return (LynxId(-1, -1));
 		 	
-         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType);
+         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType, description);
 	}
 
 	int LynxManager::structVariableCount(int structIndex)
@@ -1216,5 +1634,4 @@ namespace LynxLib
 		}
 		return -1;
 	}
-	// LynxManager Lynx;
 }

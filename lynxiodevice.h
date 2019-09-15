@@ -1,5 +1,5 @@
-#ifndef LYNX_IO_DEVICE
-#define LYNX_IO_DEVICE
+#ifndef LYNX_IO_DEVICE_H
+#define LYNX_IO_DEVICE_H
 
 #include "lynxstructure.h"
 
@@ -10,6 +10,10 @@ namespace LynxLib
 		eFindHeader = 0,
         eFindStructId,
         eGetInfo,
+		eInternals,
+		eGetScan,
+		eGetDeviceInfo,
+		eGetDeviceData,
         eGetData
 	};
 
@@ -43,8 +47,13 @@ namespace LynxLib
         E_LynxState send(const LynxId & lynxId);
         bool opened() { return _open; }
 
+		int sendDeviceInfo();
+
         virtual bool open(int port, unsigned long baudRate) = 0;
         virtual void close() = 0;
+
+		// Scan the bus for devices
+		void scan();
 
         const LynxByteArray & readBuffer() const { return _readBuffer; }
         const LynxByteArray & writeBuffer() const { return _writeBuffer; }
@@ -52,6 +61,8 @@ namespace LynxLib
 		/// Interval in milliseconds
 		void periodicTransmitStart(const LynxId & lynxId, uint32_t interval);
 		void periodicTransmitStop(const LynxId & lynxId);
+
+		LynxDeviceInfo lynxDeviceInfo();
 
 	protected:
 		E_SerialState _state;
@@ -70,6 +81,11 @@ namespace LynxLib
 		/// Must return a relative timestamp in milliseconds
 		virtual uint32_t getMillis() const = 0;
 
+		void readDeviceInfo();
+
+		LynxDeviceInfo * _deviceInfo;
+		bool _deleteDeviceInfo;
+
 		LynxByteArray _readBuffer;
 		LynxByteArray _writeBuffer;
 
@@ -77,4 +93,4 @@ namespace LynxLib
 		uint32_t _currentTime;
     };
 }
-#endif // !LYNX_IO_DEVICE
+#endif // !LYNX_IO_DEVICE_H

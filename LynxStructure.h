@@ -1,8 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//------------------------------------------ LynxStructure V2.0 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.0 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
+
+#define LYNX_VERSION "2.1.2.0"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -24,6 +26,8 @@ typedef int16_t int8_t
 #define LYNX_STATIC_HEADER 'A'	// Static header for Lynx datagrams (always the first byte of a datagram)
 #define LYNX_HEADER_BYTES 5		// Number of header bytes
 #define LYNX_CHECKSUM_BYTES 1	// Number of checksum bytes
+
+#define LYNX_INTERNALS_HEADER char(255)
 
 #if !defined(ARDUINO) && !defined(TI)
 #define LYNX_INCLUDE_EXCEPTIONS
@@ -281,8 +285,37 @@ namespace LynxLib
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
+	//----------------------------------------- LynxByteArray ---------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------
+
+
+	class LynxByteArray : public LynxList<char>
+	{
+	public:
+		LynxByteArray() : LynxList<char>() {}
+		LynxByteArray(int size) : LynxList<char>(size) {}
+		LynxByteArray(const char * charArray, int size);
+		LynxByteArray(const LynxList<char> & other) : LynxList<char>(other) {}
+
+		const char * data() const { return _data; }
+
+		using LynxList::subList;
+		LynxByteArray subList(int startIndex, int endIndex)
+		{
+			LynxByteArray temp;
+			LynxList::subList(temp, startIndex, endIndex);
+			return temp;
+		}
+
+		int toCharArray(char * buffer, int maxSize) const;
+		int fromCharArray(const char * const buffer, int size);
+
+	};
+
+	//-----------------------------------------------------------------------------------------------------------
 	//------------------------------------------ LynxString -----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
+	
 	class LynxString
 	{
 	public:
@@ -319,9 +352,15 @@ namespace LynxLib
 
 		operator const char * const() const;
 
+		bool operator == (const LynxString & other);
+		bool operator != (const LynxString & other);
+
 		void resize(int size);
 
 		LynxString subString(int startIndex, int endIndex);
+
+		bool compare(const LynxString & other) const;
+		bool isEmpty() const { return (_count < 2); }
 
 		void append(const char & other);
 		void append(const LynxString & other);
@@ -343,7 +382,10 @@ namespace LynxLib
 		// All characters before and including index will be removed
 		void removeTo(int index);
 
+		// Does not include term char
+		int toByteArray(LynxByteArray & byteArray) const;
 		const char * toCharArray() const;
+
 	private:
 		char * _string;
 		int _count;
@@ -402,40 +444,58 @@ namespace LynxLib
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
-	//----------------------------------------- LynxByteArray ---------------------------------------------------
+	//---------------------------------------- LynxRingBuffer ---------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
+	enum E_LynxRingBufferMode
+	{
+		eAutogrow = 0,		// Automatically grow the buffer if it is full
+		eFixedOverwrite,	// Buffer has fixed size determined on construction (or with reserve()/resize()), old data is overwritten if it is full
+		eFixedRefuse		// Buffer has fixed size determined on construction (or with reserve()/resize()), new data is ignored if it is full
+	};
 
-	class LynxByteArray : public LynxList<char>
+	class LynxRingBuffer
 	{
 	public:
-		LynxByteArray() : LynxList<char>() {}
-		LynxByteArray(int size) : LynxList<char>(size) {}
-		LynxByteArray(const char * charArray, int size);
-		LynxByteArray(const LynxList<char> & other) : LynxList<char>(other) {}
+		LynxRingBuffer(int size = 0, E_LynxRingBufferMode mode = eAutogrow);
+		~LynxRingBuffer();
 
-		const char * data() const { return _data; }
+		void reserve(int size);
+		void resize(int size);
 
-		using LynxList::subList;
-		LynxByteArray subList(int startIndex, int endIndex)
-		{
-			LynxByteArray temp;
-			LynxList::subList(temp, startIndex, endIndex);
-			return temp;
-		}
+		char read();
+		int read(LynxByteArray & buffer, int size = -1);
+		void write(char data);
+		int write(const LynxByteArray & buffer, int size = -1, int startIndex = 0);
+		
+		int count() const { return _count; }
 
-		int toCharArray(char * buffer, int maxSize) const;
-
+	private:
+		char * _data;
+		int _readIndex;
+		int _writeIndex;
+		int _reservedCount;
+		int _count;
+		const E_LynxRingBufferMode _mode;
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
 	//---------------------------------------------- Types ------------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
 
+	enum E_LynxInternals
+	{
+		eInvalidInternal = 0,
+		eDeviceInfo,
+		eScan
+	};
+
     enum E_LynxState
     {
         eNoChange = 0,
         eNewDataReceived,
+		eNewDeviceInfoReceived,
+		eScanReceived,
 		eDataCopiedToBuffer,
         eOutOfSync,
         eStructIdNotFound,
@@ -451,29 +511,9 @@ namespace LynxLib
 		eMergeArrayFailed,
         eEndiannessNotSet,
         eUnknownError,
-        eEndOfList
+        eLynxState_EndOfList
     };
-
-    static const LynxString lynxStateTextList[E_LynxState::eEndOfList] =
-    {
-        "No change",
-        "New data received",
-        "Data copied to buffer",
-        "Out of sync",
-        "Struct id not found",
-        "Variable index out of bounds",
-        "Buffer too small",
-        "Wrong checksum",
-        "Wrong static header",
-        "Wrong data length",
-        "Data length not found",
-        "No structures in list",
-        "Struct index out of bounds",
-        "Split array failed",
-        "Merge array failed",
-        "Endianness not set",
-        "Unknown error"
-    };
+	extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 
 
 	enum E_LynxDataType
 	{
@@ -488,8 +528,10 @@ namespace LynxLib
 		eUint64,
 		eFloat,
 		eDouble,
-		eString
+		eString,
+		eLynxType_EndOfList
 	};
+	extern const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList];
 
 	enum E_Endianness
 	{
@@ -513,15 +555,43 @@ namespace LynxLib
 		double _var_double;
 	};
 
+	struct LynxVariableInfo
+	{
+		char index;
+		E_LynxDataType dataType;
+		LynxString description;
+	};
+
+	struct LynxStructInfo
+	{
+		char structId;
+		int variableCount;
+		LynxString description;
+		LynxList<LynxVariableInfo> variables;
+	};
+
+	struct LynxDeviceInfo
+	{
+		char deviceId;
+		int structCount;
+		LynxString lynxVersion;
+		LynxString description;
+		LynxList<LynxStructInfo> structs;
+	};
+
 	class LynxType
 	{
 	public:
 		LynxType();
-		LynxType(E_LynxDataType dataType);
-        LynxType(const LynxType & other) : LynxType(other._dataType) { *this = other; }
+		LynxType(E_LynxDataType dataType, const LynxString & description = "");
+		LynxType(const LynxType & other);// : LynxType(other._dataType, other._description) { *this = other; }
 		~LynxType();
 
-		void init(E_LynxDataType dataType);
+		void init(E_LynxDataType dataType, const LynxString * const description);
+
+		LynxString description();
+		// void getInfo(LynxVariableInfo & variableInfo) const;
+		// LynxVariableInfo getInfo() const;
 
         int8_t & var_i8() { return _var->_var_i8; }
         uint8_t & var_u8() { return _var->_var_u8; }
@@ -533,7 +603,6 @@ namespace LynxLib
         int64_t & var_i64() { return _var->_var_i64; }
         uint64_t & var_u64() { return _var->_var_u64; }
         double & var_double() { return _var->_var_double; }
-
 		LynxString & var_string() { return *_str; }
 
         const int8_t & var_i8() const { return _var->_var_i8; }
@@ -546,7 +615,6 @@ namespace LynxLib
         const int64_t & var_i64() const { return _var->_var_i64; }
         const uint64_t & var_u64() const { return _var->_var_u64; }
         const double & var_double() const { return _var->_var_double; }
-
 		const LynxString & var_string() const { return *_str; }
 
 		E_LynxDataType dataType() const { return _dataType; }
@@ -567,7 +635,7 @@ namespace LynxLib
 				return *this;
 
 			if (_dataType == eInvalidType)
-				this->init(other._dataType);
+				this->init(other._dataType, other._description);
 
 			if ((_var != LYNX_NULL) && (other._var != LYNX_NULL))
 				_var->_var_i64 = other._var->_var_i64;
@@ -581,10 +649,10 @@ namespace LynxLib
         }
 
 	private:
-
-
 		LynxUnion * _var;
 		LynxString * _str;
+
+		LynxString * _description; // optional
 
         E_LynxDataType _dataType;
         static E_Endianness _endianness;
@@ -619,7 +687,6 @@ namespace LynxLib
 		LynxId lynxId;
 		int dataLength;
         E_LynxState state;
-
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
@@ -636,6 +703,9 @@ namespace LynxLib
 
 	int transferSize(E_LynxDataType dataType);
 
+	bool checkChecksum(const LynxByteArray & buffer);
+	void addChecksum(LynxByteArray & buffer);
+
 	//-----------------------------------------------------------------------------------------------------------
 	//---------------------------------------- LynxStructure ----------------------------------------------------
 	//-----------------------------------------------------------------------------------------------------------
@@ -643,15 +713,15 @@ namespace LynxLib
 	class LynxStructure : LynxList<LynxType>
 	{
 	public:
-		LynxStructure(int size = 0);
+		LynxStructure();
+		~LynxStructure();
 
 		const LynxStructure & operator = (const LynxStructure & other)
 		{
-			LynxList::operator=(other);
-			_structId = other._structId;
-			// _localSize = other._localSize;
-			// _transferSize = other._transferSize;
+			this->init(other._structId, other._description, other._count);
 
+			LynxList::operator=(other);
+			
 			return *this;
 		}
 
@@ -660,8 +730,10 @@ namespace LynxLib
 		using LynxList::count;
 		using LynxList::reserve;
 
-		// Creates a buffer with the desired information, and returns it
-		// LynxByteArray toArray(int variableIndex = -1) const;
+		void init(char structId, const LynxString * const description, int size = 0);
+
+		void getInfo(LynxStructInfo & structInfo) const;
+		LynxStructInfo getInfo() const;
 
 		/// Copies the desired information to the provided buffer
 		E_LynxState toArray(LynxByteArray & buffer, int variableIndex = -1) const;
@@ -676,7 +748,7 @@ namespace LynxLib
         void fromArray(const char * buffer, int size, LynxInfo & lynxInfo);
 
 		/// Manually add a variable to the variable list
-		LynxId addVariable(int structIndex, E_LynxDataType dataType);
+		LynxId addVariable(int structIndex, E_LynxDataType dataType, const LynxString & description = "");
 
 		/// Returns the transfersize of requested data (not including header and checksum)
 		int transferSize(int variableIndex = -1) const;
@@ -684,24 +756,32 @@ namespace LynxLib
 		/// Returns the local size of requested data (not including header and checksum)
 		int localSize(int variableIndex = -1) const;
 
-        void setStructId(char structId) { _structId = structId; }
+        // void setStructId(char structId) { _structId = structId; }
 		char structId() const { return _structId; }
 
 	private:
 		char _structId;
+		LynxString * _description;
 		// int _localSize;
 		// int _transferSize;
 	};
 
+	//-----------------------------------------------------------------------------------------------------------
+	//------------------------------------------ LynxManager ----------------------------------------------------
+	//-----------------------------------------------------------------------------------------------------------
+
 	class LynxManager : private LynxList<LynxStructure>
 	{
 	public:
-		LynxManager(char deviceId = char(0xff), int size = 0);
+		LynxManager(char deviceId = char(0xff), const LynxString & description = "", int size = 0);
+		~LynxManager();
 
 		using LynxList::count;
 
-		void setDeviceId(char deviceId) { _deviceId = deviceId; }
+		void getInfo(LynxDeviceInfo & deviceInfo) const;
+		LynxDeviceInfo getInfo() const;
 
+		void setDeviceId(char deviceId) { _deviceId = deviceId; }
         char structId(const LynxId & lynxId);
 
 		LynxType & variable(const LynxId & lynxId);
@@ -727,8 +807,8 @@ namespace LynxLib
 		int transferSize(const LynxId & lynxId) const;
 		int localSize(const LynxId & lynxId) const;
 
-		LynxId addStructure(char structId, int size = 0);
-        LynxId addVariable(const LynxId & parentStruct, E_LynxDataType dataType);
+		LynxId addStructure(char structId, const LynxString & description = "", int size = 0);
+        LynxId addVariable(const LynxId & parentStruct, E_LynxDataType dataType, const LynxString & description = "");
 
 		// Returns number of variables in struct. Returns 0 if out of bounds
 		int structVariableCount(int structIndex);
@@ -738,6 +818,7 @@ namespace LynxLib
 	private:
 		char _deviceId;
 		LynxType _dummyVariable;
+		LynxString * _description;
 	};
 
 	//-----------------------------------------------------------------------------------------------------------
@@ -747,9 +828,9 @@ namespace LynxLib
 	class LynxVar
 	{
 	public:
-        LynxVar(LynxManager & lynxManager, const LynxId & parentStruct, E_LynxDataType dataType) :
+        LynxVar(LynxManager & lynxManager, const LynxId & parentStruct, E_LynxDataType dataType, const LynxString & description = "") :
             _lynxManager(&lynxManager),
-            _lynxId(lynxManager.addVariable(parentStruct, dataType))
+            _lynxId(lynxManager.addVariable(parentStruct, dataType, description))
         {}
 
         LynxVar(const LynxVar & other) :
@@ -777,8 +858,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_i8(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eInt8) {}
+        LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eInt8, description) {}
 		
 		operator const int8_t&() const { return _lynxManager->variable(_lynxId).var_i8(); }
 
@@ -793,8 +874,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_u8(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eUint8) {}
+        LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eUint8, description) {}
 
 		operator const uint8_t&() const { return _lynxManager->variable(_lynxId).var_u8(); }
 
@@ -808,8 +889,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_i16(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eInt16) {}
+        LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eInt16, description) {}
 
 		operator const int16_t&() const { return _lynxManager->variable(_lynxId).var_i16(); }
 
@@ -823,8 +904,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_u16(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eUint16) {}
+        LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eUint16, description) {}
 
 		operator const uint16_t&() const { return _lynxManager->variable(_lynxId).var_u16(); }
 
@@ -838,8 +919,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_i32(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eInt32) {}
+        LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eInt32, description) {}
 
 		operator const int32_t&() const { return _lynxManager->variable(_lynxId).var_i32(); }
 
@@ -853,8 +934,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_u32(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eUint32) {}
+        LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eUint32, description) {}
 
 		operator const uint32_t&() const { return _lynxManager->variable(_lynxId).var_u32(); }
 
@@ -868,8 +949,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_i64(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eInt64) {}
+        LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eInt64, description) {}
 
 		operator const int64_t&() const { return _lynxManager->variable(_lynxId).var_i64(); }
 
@@ -883,8 +964,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_u64(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eUint64) {}
+        LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eUint64, description) {}
 
 		operator const uint64_t&() const { return _lynxManager->variable(_lynxId).var_u64(); }
 
@@ -898,8 +979,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_float(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eFloat) {}
+        LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eFloat, description) {}
 
 		operator const float&() const { return _lynxManager->variable(_lynxId).var_float(); }
 
@@ -913,8 +994,8 @@ namespace LynxLib
 	{
 	public:
         // LynxVar_double(const LynxVar & other) : LynxVar(other) {}
-        LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct) :
-            LynxVar(lynxManager, parentStruct, eDouble) {}
+        LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+            LynxVar(lynxManager, parentStruct, eDouble, description) {}
 
 		operator const double&() const { return _lynxManager->variable(_lynxId).var_double(); }
 
@@ -928,8 +1009,8 @@ namespace LynxLib
 	{
 	public:
 		// LynxVar_double(const LynxVar & other) : LynxVar(other) {}
-		LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct) :
-			LynxVar(lynxManager, parentStruct, eString) {}
+		LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
+			LynxVar(lynxManager, parentStruct, eString, description) {}
 
 		operator const LynxString&() const { return _lynxManager->variable(_lynxId).var_string(); }
 
