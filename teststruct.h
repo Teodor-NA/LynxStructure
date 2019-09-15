@@ -1,5 +1,5 @@
-#ifndef TEST_STRUCT
-#define TEST_STRUCT
+#ifndef TEST_STRUCT_H
+#define TEST_STRUCT_H
 
 #include "lynxstructure.h"
 
@@ -7,8 +7,8 @@ using namespace LynxLib;
 
 struct TestStructure
 {
-    TestStructure(LynxManager & lynx, char _structId) :
-		_lynxId(lynx.addStructure(_structId, 9)),
+    TestStructure(LynxManager & lynx, char _structId, const LynxString & description = "") :
+		_lynxId(lynx.addStructure(_structId, description, 9)),
         i8Var(lynx, _lynxId),
         u8Var(lynx, _lynxId),
         i16Var(lynx, _lynxId),
@@ -24,9 +24,6 @@ struct TestStructure
 	// This macro must be included immediately after the constructor
 	LYNX_STRUCTURE_MACRO
 
-//private: const LynxId _lynxId; 
-//public: const LynxId & lynxId() { return _lynxId; }
-
 	LynxVar_i8 i8Var;
 	LynxVar_u8 u8Var;
 	LynxVar_i16 i16Var;
@@ -40,4 +37,4 @@ struct TestStructure
 };
 
 
-#endif // !TEST_STRUCT
+#endif // !TEST_STRUCT_H
