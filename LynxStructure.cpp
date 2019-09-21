@@ -484,7 +484,7 @@ void LynxStructure::getInfo(LynxStructInfo & structInfo) const
 	for (int i = 0; i < _count; i++)
 	{
 		structInfo.variables.append();
-		structInfo.variables[i].index = i;
+        structInfo.variables[i].index = char(i);
 		structInfo.variables[i].dataType = _data[i].dataType();
 		structInfo.variables[i].description = _data[i].description();
 	}

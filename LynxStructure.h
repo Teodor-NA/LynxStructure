@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.0 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.1 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.0"
+#define LYNX_VERSION "2.1.2.1"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -185,6 +185,15 @@ struct LynxDeviceInfo
 	LynxString lynxVersion;
 	LynxString description;
 	LynxList<LynxStructInfo> structs;
+
+	void deleteInfo()
+	{
+		deviceId = 0;
+		structCount = 0;
+		lynxVersion.deleteData();
+		description.deleteData();
+		structs.deleteData();
+	}
 };
 
 struct LynxId

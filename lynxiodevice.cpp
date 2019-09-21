@@ -3,32 +3,19 @@
 LynxIoDevice::LynxIoDevice(LynxManager & lynx) :
     _state(LynxLib::eFindHeader),
     _open(false),
-    _lynx(&lynx),
-	_deleteDeviceInfo(false)
+    _lynx(&lynx)
 {
 }
 
 
 LynxIoDevice::~LynxIoDevice()
 {
-	if (_deviceInfo != LYNX_NULL)
-	{ 
-		delete _deviceInfo;
-		_deviceInfo = LYNX_NULL;
-	}
 }
 
 
 const LynxInfo & LynxIoDevice::update()
 {
     _updateInfo.state = LynxLib::eNoChange;
-
-	if (_deleteDeviceInfo)
-	{
-		delete _deviceInfo;
-		_deviceInfo = LYNX_NULL;
-		_deleteDeviceInfo = false;
-	}
 
 	if (this->bytesAvailable() < 1)
 		return _updateInfo;
@@ -171,7 +158,7 @@ const LynxInfo & LynxIoDevice::update()
 
 			this->readDeviceInfo();
 
-			_updateInfo.deviceId = _deviceInfo->deviceId;
+			_updateInfo.deviceId = _deviceInfo.deviceId;
 			_updateInfo.state = LynxLib::eNewDeviceInfoReceived;
 			_state = LynxLib::eFindHeader;
 		}
@@ -450,12 +437,11 @@ void LynxIoDevice::periodicTransmitStop(const LynxId & lynxId)
 
 LynxDeviceInfo LynxIoDevice::lynxDeviceInfo()
 {
-	if (_deviceInfo == LYNX_NULL)
-		return LynxDeviceInfo();
+	LynxDeviceInfo temp = _deviceInfo;
 
-	_deleteDeviceInfo = true;
-
-	return *_deviceInfo;
+	_deviceInfo.deleteInfo();
+	
+	return temp;
 }
 
 void LynxIoDevice::readDeviceInfo()
@@ -477,28 +463,25 @@ void LynxIoDevice::readDeviceInfo()
 	// c = Version len
 	// C = c + d
 
-	if (_deviceInfo == LYNX_NULL)
-		_deviceInfo = new LynxDeviceInfo();
-
 	int readIndex = LYNX_HEADER_BYTES;
-	_deviceInfo->deviceId = _readBuffer.at(readIndex);
+	_deviceInfo.deviceId = _readBuffer.at(readIndex);
 	readIndex++;
 	int readLength = _readBuffer.at(readIndex);
 	readIndex++;
-	_deviceInfo->description.clear();
-	_deviceInfo->description.append(&_readBuffer.at(readIndex), readLength);
+	_deviceInfo.description.clear();
+	_deviceInfo.description.append(&_readBuffer.at(readIndex), readLength);
 	readIndex += readLength;
 	readLength = _readBuffer.at(readIndex);
 	readIndex++;
-	_deviceInfo->lynxVersion.clear();
-	_deviceInfo->lynxVersion.append(&_readBuffer.at(readIndex), readLength);
+	_deviceInfo.lynxVersion.clear();
+	_deviceInfo.lynxVersion.append(&_readBuffer.at(readIndex), readLength);
 	readIndex += readLength;
-	_deviceInfo->structCount = _readBuffer.at(readIndex);
+	_deviceInfo.structCount = _readBuffer.at(readIndex);
 	readIndex++;
 
-	_deviceInfo->structs.reserve(_deviceInfo->structCount);
+	_deviceInfo.structs.reserve(_deviceInfo.structCount);
 
-	for (int i = 0; i < _deviceInfo->structCount; i++)
+	for (int i = 0; i < _deviceInfo.structCount; i++)
 	{
 		// ------------------------ Struct Data -------------------------
 		// --------------------------------------------------------------
@@ -514,21 +497,21 @@ void LynxIoDevice::readDeviceInfo()
 		// d = Struct desc. len
 		// D = k + 2 + d
 
-		_deviceInfo->structs.append();
+		_deviceInfo.structs.append();
 
-		_deviceInfo->structs[i].structId = _readBuffer.at(readIndex);
+		_deviceInfo.structs[i].structId = _readBuffer.at(readIndex);
 		readIndex++;
 		readLength = _readBuffer.at(readIndex);
 		readIndex++;
-		_deviceInfo->structs[i].description.clear();
-		_deviceInfo->structs[i].description.append(&_readBuffer.at(readIndex), readLength);
+		_deviceInfo.structs[i].description.clear();
+		_deviceInfo.structs[i].description.append(&_readBuffer.at(readIndex), readLength);
 		readIndex += readLength;
-		_deviceInfo->structs[i].variableCount = _readBuffer.at(readIndex);
+		_deviceInfo.structs[i].variableCount = _readBuffer.at(readIndex);
 		readIndex++;
 
-		_deviceInfo->structs[i].variables.reserve(_deviceInfo->structs.at(i).variableCount);
+		_deviceInfo.structs[i].variables.reserve(_deviceInfo.structs.at(i).variableCount);
 
-		for (int j = 0; j < _deviceInfo->structs.at(i).variableCount; j++)
+		for (int j = 0; j < _deviceInfo.structs.at(i).variableCount; j++)
 		{
 			// ---------------------- Variable Data -------------------------
 			// --------------------------------------------------------------
@@ -543,20 +526,18 @@ void LynxIoDevice::readDeviceInfo()
 			// e = Var desc. len
 			// E = p + 2 + e
 
-			_deviceInfo->structs[i].variables.append();
+			_deviceInfo.structs[i].variables.append();
 
-			_deviceInfo->structs[i].variables[j].index = _readBuffer.at(readIndex);
+			_deviceInfo.structs[i].variables[j].index = _readBuffer.at(readIndex);
 			readIndex++;
 			readLength = _readBuffer.at(readIndex);
 			readIndex++;
-			_deviceInfo->structs[i].variables[j].description.clear();
-			_deviceInfo->structs[i].variables[j].description.append(&_readBuffer.at(readIndex), readLength);
+			_deviceInfo.structs[i].variables[j].description.clear();
+			_deviceInfo.structs[i].variables[j].description.append(&_readBuffer.at(readIndex), readLength);
 			readIndex += readLength;
-			_deviceInfo->structs[i].variables[j].dataType = LynxLib::E_LynxDataType(_readBuffer.at(readIndex));
+			_deviceInfo.structs[i].variables[j].dataType = LynxLib::E_LynxDataType(_readBuffer.at(readIndex));
 			readIndex++;
 		}
 	}
-
-	_deleteDeviceInfo = false; // Just in case
 }
 

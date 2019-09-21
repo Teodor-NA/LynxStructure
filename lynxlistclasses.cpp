@@ -51,7 +51,7 @@ LynxString::LynxString()
 
 LynxString::LynxString(int size) : LynxString()
 {
-	this->reserve(size + 1);
+	this->reserve(size);
 }
 
 LynxString::LynxString(const char * const other, int maxLength) : LynxString()
@@ -61,17 +61,15 @@ LynxString::LynxString(const char * const other, int maxLength) : LynxString()
 	if (copyCount < 0)
 		copyCount = maxLength;
 
-	// Removed to make it possible to create empty string
-	// if (copyCount < 1) // nothing to copy
-	// 	return;
-
-	this->reserve(copyCount + 1);
+	this->reserve(copyCount);
 
 	if (copyCount > 0)
+	{
 		memcpy(_string, other, copyCount);
 
-	_string[copyCount] = '\0';
-	_count = copyCount + 1;
+		_string[copyCount] = '\0';
+		_count = copyCount + 1;
+	}
 }
 
 LynxString::LynxString(const LynxString & other) : LynxString()
@@ -123,17 +121,12 @@ const char & LynxString::last() const
 
 int LynxString::count() const
 {
-	if (_count < 1)
-		return 0;
-
 	return (_count - 1);
 }
 
 void LynxString::clear()
 {
-	this->reserve(1);
-	_string[0] = '\0';
-	_count = 1;
+	this->reserve(0);
 }
 
 const LynxString & LynxString::operator=(const LynxString & other)
@@ -143,13 +136,11 @@ const LynxString & LynxString::operator=(const LynxString & other)
 
 	if (other._count < 2)
 	{
-		this->reserve(1);
-		_string[0] = '\0';
-		_count = 1;
+		this->clear();
 	}
 	else
 	{
-		this->reserve(other._count);
+		this->reserve(other.count());
 		memcpy(_string, other._string, other._count);
 		_count = other._count;
 	}
@@ -159,19 +150,18 @@ const LynxString & LynxString::operator=(const LynxString & other)
 
 const LynxString & LynxString::operator=(const char * const other)
 {
-	int copySize = findTermChar(other) + 1;
+	int copySize = findTermChar(other);
 
 	if (copySize < 1)
 	{
-		this->reserve(1);
-		_string[0] = '\0';
-		_count = 1;
+		this->clear();
 	}
 	else
 	{
 		this->reserve(copySize);
 		memcpy(_string, other, copySize);
-		_count = copySize;
+		_string[copySize] = '\0';
+		_count = copySize + 1;
 	}
 
 	return *this;
@@ -222,7 +212,7 @@ LynxString operator+(const char * const otherCharArray, const LynxString & other
 
 LynxString::operator const char*const() const
 {
-	if (_count < 2)
+	if (_count < 1)
 		return "";
 
 	return _string;
@@ -240,15 +230,19 @@ bool LynxString::operator!=(const LynxString & other)
 
 void LynxString::reserve(int size)
 {
-	_count = 0;
-
-	if (size <= _reservedCount)
+	if ((size + 1) <= _reservedCount)
+	{
+		_string[0] = '\0';
+		_count = 1;
 		return;
-
+	}
+		
 	this->deleteData();
 
-	_reservedCount = size;
+	_reservedCount = size + 1;
 	_string = new char[_reservedCount];
+	_string[0] = '\0';
+	_count = 1;
 }
 
 void LynxString::resize(int size)
@@ -256,17 +250,15 @@ void LynxString::resize(int size)
 	if ((size + 1) <= _reservedCount)
 		return;
 
-	_reservedCount = size + 1;
 	if (_count < 2) // Nothing to copy
-	{
-		this->deleteData();
-
-		_string = new char[_reservedCount];
+	{		
+		this->reserve(size);
 	}
 	else // Data must be copied
 	{
 		char * oldString = _string;
 
+		_reservedCount = size + 1;
 		_string = new char[_reservedCount];
 
 		memcpy(_string, oldString, _count);
@@ -312,9 +304,10 @@ bool LynxString::compare(const LynxString & other) const
 
 void LynxString::append(const char & other)
 {
-	if (_count == 0)
-		_count++;
-	this->resize(_count);
+	if (_count < 1)
+		this->resize(1);
+	else
+		this->resize(_count);
 
 	_string[_count - 1] = other;
 	_string[_count] = '\0';
@@ -326,12 +319,13 @@ void LynxString::append(const LynxString & other)
 	if (other._count < 2) // nothing to copy
 		return;
 
-	if (_count == 0)
-		_count++;
+	if (_count < 1)
+		this->resize(other.count());
+	else
+		this->resize(this->count() + other.count());
 
-	this->resize(_count + other._count - 2);
 	memcpy(&(_string[_count - 1]), other._string, other._count);
-	_count = _count + other._count - 1;
+	_count += other.count();
 }
 
 void LynxString::append(const char * const other, int maxLength)
@@ -343,13 +337,14 @@ void LynxString::append(const char * const other, int maxLength)
 	if (copyCount < 1) // nothing to copy
 		return;
 
-	if (_count == 0)
-		_count++;
-
-	this->resize(_count + copyCount - 1);
+	if (_count < 1)
+		this->resize(copyCount);
+	else
+		this->resize(this->count() + copyCount);
+	
 	memcpy(&(_string[_count - 1]), other, copyCount);
-	_string[_count + copyCount - 1] = '\0';
-	_count = _count + copyCount;
+	_count += copyCount;
+	_string[_count - 1] = '\0';
 }
 
 void LynxString::reverse(int indexFrom, int indexTo)

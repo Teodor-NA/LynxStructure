@@ -84,8 +84,7 @@ protected:
 
 	void readDeviceInfo();
 
-	LynxDeviceInfo * _deviceInfo;
-	bool _deleteDeviceInfo;
+	LynxDeviceInfo _deviceInfo;
 
 	LynxByteArray _readBuffer;
 	LynxByteArray _writeBuffer;

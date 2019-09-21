@@ -8,17 +8,17 @@ using namespace LynxLib;
 struct TestStructure
 {
     TestStructure(LynxManager & lynx, char _structId, const LynxString & description = "") :
-		_lynxId(lynx.addStructure(_structId, description, 9)),
-        i8Var(lynx, _lynxId),
-        u8Var(lynx, _lynxId),
-        i16Var(lynx, _lynxId),
-        u16Var(lynx, _lynxId),
-        i32Var(lynx, _lynxId),
-		string(lynx, _lynxId),
-        u32Var(lynx, _lynxId),
-        i64Var(lynx, _lynxId),
-        u64Var(lynx, _lynxId),
-        floatVar(lynx, _lynxId)
+		_lynxId(lynx.addStructure(_structId, description, 10)),
+        i8Var(lynx, _lynxId, "i8 var"),
+        u8Var(lynx, _lynxId, "u8 var"),
+        i16Var(lynx, _lynxId, "i16 var"),
+        u16Var(lynx, _lynxId, "u16 var"),
+        i32Var(lynx, _lynxId, "i32 var"),
+		string(lynx, _lynxId, "string var"),
+        u32Var(lynx, _lynxId, "u32 var"),
+        i64Var(lynx, _lynxId, "i64 var"),
+        u64Var(lynx, _lynxId, "u64 var"),
+        floatVar(lynx, _lynxId, "float var")
 	{}
 
 	// This macro must be included immediately after the constructor
