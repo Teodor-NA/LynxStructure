@@ -4,8 +4,6 @@
 #include "lynxiodevice.h"
 #include <Arduino.h>
 
-using namespace LynxLib;
-
 class LynxUartArduino :
 	public LynxIoDevice
 {
