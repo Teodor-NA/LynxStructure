@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.1 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.2 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.1"
+#define LYNX_VERSION "2.1.2.2"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -28,6 +28,7 @@ typedef int16_t int8_t
 #define LYNX_CHECKSUM_BYTES 1	// Number of checksum bytes
 
 #define LYNX_INTERNALS_HEADER char(255)
+#define LYNX_INVALID_DATAGRAM char(0)
 
 #define LYNX_STRUCTURE_MACRO \
 private: const LynxId _lynxId; \
@@ -77,16 +78,23 @@ namespace LynxLib
 	{
 		eInvalidInternal = 0,
 		eDeviceInfo,
-		eScan
+		eScan,
+		ePullDatagram,
+		eLynxInternals_EndOfList
 	};
 
 	enum E_LynxState
 	{
 		eNoChange = 0,
+		// anything above eUpdates and below eErrors is update info
+		eUpdates,
 		eNewDataReceived,
 		eNewDeviceInfoReceived,
 		eScanReceived,
 		eDataCopiedToBuffer,
+		ePullRequestReceived,
+		// Anything above eError is an error
+		eErrors,
 		eOutOfSync,
 		eStructIdNotFound,
 		eVariableIndexOutOfBounds,
@@ -101,6 +109,8 @@ namespace LynxLib
 		eMergeArrayFailed,
 		eEndiannessNotSet,
 		eUnknownError,
+		eInvalidStructId,
+		eInvalidInternalId,
 		eLynxState_EndOfList
 	};
 	extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 

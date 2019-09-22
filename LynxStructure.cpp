@@ -232,10 +232,13 @@ namespace LynxLib
 	const LynxString lynxStateTextList[LynxLib::eLynxState_EndOfList] =
 	{
 		"No change",
+		"Update separator",
 		"New data received",
 		"New device info received",
 		"Scan received",
 		"Data copied to buffer",
+		"Pull request received",
+		"Error separator",
 		"Out of sync",
 		"Struct id not found",
 		"Variable index out of bounds",
@@ -249,7 +252,9 @@ namespace LynxLib
 		"Split array failed",
 		"Merge array failed",
 		"Endianness not set",
-		"Unknown error"
+		"Unknown error",
+		"Invalid struct id",
+		"Invalid internal id"
 	};
 
 	const LynxString lynxTypeTextList[LynxLib::eLynxType_EndOfList]
@@ -680,7 +685,7 @@ LynxDeviceInfo LynxManager::getInfo() const
 char LynxManager::structId(const LynxId & lynxId)
 {
     if((lynxId.structIndex < 0) || (lynxId.structIndex > _count))
-        return char(0xff);
+        return LYNX_INVALID_DATAGRAM;
 
     return _data[lynxId.structIndex].structId();
 }
@@ -921,6 +926,7 @@ int LynxManager::findId(char structId)
 		if (_data[i].structId() == structId)
 			return i;
 	}
+
 	return -1;
 }
 

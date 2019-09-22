@@ -11,6 +11,7 @@ namespace LynxLib
 		eFindStructId,
 		eGetInfo,
 		eInternals,
+		eGetPullRequest,
 		eGetScan,
 		eGetDeviceInfo,
 		eGetDeviceData,
@@ -55,6 +56,8 @@ public:
 
 	// Scan the bus for devices
 	void scan();
+	// Pull datagram from device
+	void pullDatagram(const LynxId & lynxId);
 
     const LynxByteArray & readBuffer() const { return _readBuffer; }
     const LynxByteArray & writeBuffer() const { return _writeBuffer; }
