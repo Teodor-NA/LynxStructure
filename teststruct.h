@@ -3,8 +3,6 @@
 
 #include "lynxstructure.h"
 
-using namespace LynxLib;
-
 struct TestStructure
 {
     TestStructure(LynxManager & lynx, char _structId, const LynxString & description = "") :

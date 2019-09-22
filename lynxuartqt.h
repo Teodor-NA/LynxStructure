@@ -8,8 +8,6 @@
 #include <QtDebug>
 #include <QTime>
 
-using namespace LynxLib;
-
 class LynxUartQt : public LynxIoDevice
 {
 public:
