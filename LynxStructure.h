@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.1 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.3 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.1"
+#define LYNX_VERSION "2.1.2.3"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -28,6 +28,7 @@ typedef int16_t int8_t
 #define LYNX_CHECKSUM_BYTES 1	// Number of checksum bytes
 
 #define LYNX_INTERNALS_HEADER char(255)
+#define LYNX_INVALID_DATAGRAM char(0)
 
 #define LYNX_STRUCTURE_MACRO \
 private: const LynxId _lynxId; \
@@ -77,16 +78,27 @@ namespace LynxLib
 	{
 		eInvalidInternal = 0,
 		eDeviceInfo,
-		eScan
+		eScan,
+		ePullDatagram,
+		eStartPeriodic,
+		eStopPeriodic,
+		eLynxInternals_EndOfList
 	};
 
 	enum E_LynxState
 	{
 		eNoChange = 0,
+		// anything above eUpdates and below eErrors is update info
+		eUpdates,
 		eNewDataReceived,
 		eNewDeviceInfoReceived,
 		eScanReceived,
 		eDataCopiedToBuffer,
+		ePullRequestReceived,
+		ePeriodicTransmitStart,
+		ePeriodicTransmitStop,
+		// Anything above eError is an error
+		eErrors,
 		eOutOfSync,
 		eStructIdNotFound,
 		eVariableIndexOutOfBounds,
@@ -101,6 +113,8 @@ namespace LynxLib
 		eMergeArrayFailed,
 		eEndiannessNotSet,
 		eUnknownError,
+		eInvalidStructId,
+		eInvalidInternalId,
 		eLynxState_EndOfList
 	};
 	extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 
@@ -142,6 +156,9 @@ namespace LynxLib
 
 	bool checkChecksum(const LynxByteArray & buffer);
 	void addChecksum(LynxByteArray & buffer);
+
+	void expandInt(int32_t input, LynxByteArray & buffer);
+	int32_t combineInt(const LynxByteArray & buffer, int startIndex);
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -211,16 +228,30 @@ struct LynxId
 		return ((structIndex != other.structIndex) || (variableIndex != other.variableIndex));
 	}
 
-
 	int structIndex;
 	int variableIndex;
 };
 
+//struct LynxVariableId : LynxId
+//{
+//	LynxVariableId(int _structIndex = -1, int _variableIndex = -1, LynxLib::E_LynxDataType _dataType = LynxLib::eInvalidType) :
+//		LynxId(_structIndex, _variableIndex), dataType(_dataType) {}
+//
+//	LynxLib::E_LynxDataType dataType;
+//};
+
+struct LynxDynamicId
+{
+	LynxId structId;
+	LynxList<LynxId> variableIds;
+};
+
 struct LynxInfo
 {
-	LynxInfo() : deviceId(0), lynxId(), dataLength(0), state(LynxLib::eNoChange) {}
+    LynxInfo() : deviceId(0), structId(0), lynxId(), dataLength(0), state(LynxLib::eNoChange) {}
 
 	char deviceId;
+    char structId;
 	LynxId lynxId;
 	int dataLength;
 	LynxLib::E_LynxState state;
@@ -360,14 +391,13 @@ public:
 	/// Returns the local size of requested data (not including header and checksum)
 	int localSize(int variableIndex = -1) const;
 
-    // void setStructId(char structId) { _structId = structId; }
-	char structId() const { return _structId; }
+    char structId() const { return _structId; }
+
+	LynxString description();
 
 private:
 	char _structId;
 	LynxString * _description;
-	// int _localSize;
-	// int _transferSize;
 };
 
 //-----------------------------------------------------------------------------------------------------------
@@ -393,9 +423,6 @@ public:
 
 	void copy(const LynxId & source, const LynxId & target);
 
-	// Creates a buffer with the desired information, and returns it
-	// LynxByteArray toArray(const LynxId & lynxId) const;
-
 	// Copies the desired information to the provided buffer
 	LynxLib::E_LynxState toArray(LynxByteArray & buffer, const LynxId & lynxId) const;
 
@@ -412,7 +439,16 @@ public:
 	int localSize(const LynxId & lynxId) const;
 
 	LynxId addStructure(char structId, const LynxString & description = "", int size = 0);
+	LynxDynamicId addStructure(const LynxStructInfo & structInfo);
     LynxId addVariable(const LynxId & parentStruct, LynxLib::E_LynxDataType dataType, const LynxString & description = "");
+
+	LynxLib::E_LynxDataType dataType(const LynxId & lynxId);
+
+	void setValue(double value, const LynxId & lynxId);
+	double getValue(const LynxId & lynxId);
+
+	void setString(const LynxString & str, const LynxId & lynxId);
+	LynxString getString(const LynxId & lynxId);
 
 	// Returns number of variables in struct. Returns 0 if out of bounds
 	int structVariableCount(int structIndex);

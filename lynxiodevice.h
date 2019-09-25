@@ -11,6 +11,9 @@ namespace LynxLib
 		eFindStructId,
 		eGetInfo,
 		eInternals,
+		eGetPeriodicStart,
+		eGetPeriodicStop,
+		eGetPullRequest,
 		eGetScan,
 		eGetDeviceInfo,
 		eGetDeviceData,
@@ -43,7 +46,7 @@ public:
 	const LynxInfo & update();
 
 	/// Must be run as often as possible, or on timer interrupts if possible.
-	void periodicTransmitUpdate();
+	void periodicUpdate();
 
     LynxLib::E_LynxState send(const LynxId & lynxId);
     bool opened() { return _open; }
@@ -55,13 +58,18 @@ public:
 
 	// Scan the bus for devices
 	void scan();
+	// Pull datagram from device
+	void pullDatagram(const LynxId & lynxId);
 
     const LynxByteArray & readBuffer() const { return _readBuffer; }
     const LynxByteArray & writeBuffer() const { return _writeBuffer; }
 
 	/// Interval in milliseconds
-	void periodicTransmitStart(const LynxId & lynxId, uint32_t interval);
-	void periodicTransmitStop(const LynxId & lynxId);
+	void periodicStart(const LynxId & lynxId, uint32_t interval);
+	void periodicStop(const LynxId & lynxId);
+
+	void remotePeriodicStart(const LynxId & lynxId, uint32_t interval);
+	void remotePeriodicStop(const LynxId & lynxId);
 
 	LynxDeviceInfo lynxDeviceInfo();
 
