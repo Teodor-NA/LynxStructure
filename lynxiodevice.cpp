@@ -39,19 +39,21 @@ const LynxInfo & LynxIoDevice::update()
         {
             this->read();
 
-			if (_readBuffer.at(1) == LYNX_INVALID_DATAGRAM)
+            _updateInfo.structId = _readBuffer.at(1);
+
+            if (_updateInfo.structId == LYNX_INVALID_DATAGRAM)
 			{
 				_updateInfo.state = LynxLib::eInvalidStructId;
 				_state = LynxLib::eFindHeader;
 				return _updateInfo;
 			}
-			else if (_readBuffer.at(1) == LYNX_INTERNALS_HEADER)
+            else if (_updateInfo.structId == LYNX_INTERNALS_HEADER)
 			{
 				_state = LynxLib::eInternals;
 			}
 			else
 			{
-				_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(1));
+                _updateInfo.lynxId.structIndex = _lynx->findId(_updateInfo.structId);
 
 				if (_updateInfo.lynxId.structIndex < 0)
 				{
@@ -84,11 +86,118 @@ const LynxInfo & LynxIoDevice::update()
 			case LynxLib::ePullDatagram:
 				_state = LynxLib::eGetPullRequest;
 				break;
+			case LynxLib::eStartPeriodic:
+				_state = LynxLib::eGetPeriodicStart;
+				break;
+			case LynxLib::eStopPeriodic:
+				_state = LynxLib::eGetPeriodicStop;
+				break;
 			default:
 				_updateInfo.state = LynxLib::eInvalidInternalId;
 				_state = LynxLib::eFindHeader;
 				return _updateInfo;
 			}
+		}
+	}
+
+	if (_state == LynxLib::eGetPeriodicStart)
+	{
+		// ---------------------------- Frame --------------------------------
+		// -------------------------------------------------------------------
+		// |    Description    |    Size    |     Index    |    Contents     |
+		// -------------------------------------------------------------------
+		// |   Static header   |     1      |       0      |      'A'        |
+		// |    Datagram Id    |     1      |       1      |      255        |
+		// | Internal data id  |     1      |       2      |       4         |
+		// |     Struct Id     |     1      |       3      |    0 -> 254     |
+		// |  Variable Index   |     1      |       4      |    0 -> 255     |
+		// | Periodic interval |     4      |     5 -> 8   | 0 -> (2^32 - 1) |
+		// |     Checksum      |     1      |       9      |    0 -> 255     |
+		// -------------------------------------------------------------------
+
+		if (this->bytesAvailable() >= 7)
+		{ 
+			this->read(7);
+
+			if (!LynxLib::checkChecksum(_readBuffer))
+			{
+				_updateInfo.state = LynxLib::eWrongChecksum;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+
+			_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(3));
+			_updateInfo.lynxId.variableIndex = int(_readBuffer.at(4)) - 1;
+
+			if (_updateInfo.lynxId.structIndex < 0)
+			{
+				_updateInfo.state = LynxLib::eStructIdNotFound;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+			else if (_updateInfo.lynxId.variableIndex >= _lynx->structVariableCount(_updateInfo.lynxId.structIndex))
+			{
+				_updateInfo.state = LynxLib::eVariableIndexOutOfBounds;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+
+			uint32_t interval = uint32_t(LynxLib::combineInt(_readBuffer, 5));
+
+			this->periodicStart(_updateInfo.lynxId, interval);
+
+			_updateInfo.state = LynxLib::ePeriodicTransmitStart;
+			_state = LynxLib::eFindHeader;
+			return _updateInfo;
+		}
+	}
+
+	if (_state == LynxLib::eGetPeriodicStop)
+	{
+		// ---------------------------- Frame --------------------------------
+		// -------------------------------------------------------------------
+		// |    Description    |    Size    |     Index    |    Contents     |
+		// -------------------------------------------------------------------
+		// |   Static header   |     1      |       0      |      'A'        |
+		// |    Datagram Id    |     1      |       1      |      255        |
+		// | Internal data id  |     1      |       2      |       4         |
+		// |     Struct Id     |     1      |       3      |    0 -> 254     |
+		// |  Variable Index   |     1      |       4      |    0 -> 255     |
+		// |     Checksum      |     1      |       5      |    0 -> 255     |
+		// -------------------------------------------------------------------
+
+		if (this->bytesAvailable() >= 3)
+		{
+			this->read(3);
+
+			if (!LynxLib::checkChecksum(_readBuffer))
+			{
+				_updateInfo.state = LynxLib::eWrongChecksum;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+
+			_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(3));
+			_updateInfo.lynxId.variableIndex = int(_readBuffer.at(4)) - 1;
+
+			if (_updateInfo.lynxId.structIndex < 0)
+			{
+				_updateInfo.state = LynxLib::eStructIdNotFound;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+			else if (_updateInfo.lynxId.variableIndex >= _lynx->structVariableCount(_updateInfo.lynxId.structIndex))
+			{
+				_updateInfo.state = LynxLib::eVariableIndexOutOfBounds;
+				_state = LynxLib::eFindHeader;
+				return _updateInfo;
+			}
+
+			this->periodicStop(_updateInfo.lynxId);
+
+			_updateInfo.state = LynxLib::ePeriodicTransmitStop;
+			_state = LynxLib::eFindHeader;
+			return _updateInfo;
 		}
 	}
 
@@ -270,7 +379,7 @@ const LynxInfo & LynxIoDevice::update()
 	return _updateInfo;
 }
 
-void LynxIoDevice::periodicTransmitUpdate()
+void LynxIoDevice::periodicUpdate()
 {
 	_currentTime = this->getMillis();
 
@@ -473,7 +582,7 @@ void LynxIoDevice::pullDatagram(const LynxId & lynxId)
 	// |     Checksum     |     1      |       5      |  0 -> 255  |
 	// -------------------------------------------------------------
 
-	_writeBuffer.reserve(4);
+	_writeBuffer.reserve(6);
 	_writeBuffer.append(LYNX_STATIC_HEADER);
 	_writeBuffer.append(LYNX_INTERNALS_HEADER);
 	_writeBuffer.append(LynxLib::E_LynxInternals::ePullDatagram);
@@ -484,7 +593,7 @@ void LynxIoDevice::pullDatagram(const LynxId & lynxId)
 	this->write();
 }
 	
-void LynxIoDevice::periodicTransmitStart(const LynxId & lynxId, uint32_t interval)
+void LynxIoDevice::periodicStart(const LynxId & lynxId, uint32_t interval)
 {
 	for (int i = 0; i < _periodicTransmits.count(); i++)
 	{
@@ -499,7 +608,7 @@ void LynxIoDevice::periodicTransmitStart(const LynxId & lynxId, uint32_t interva
 	return;
 }
 
-void LynxIoDevice::periodicTransmitStop(const LynxId & lynxId)
+void LynxIoDevice::periodicStop(const LynxId & lynxId)
 {
 	for (int i = 0; i < _periodicTransmits.count(); i++)
 	{
@@ -509,6 +618,58 @@ void LynxIoDevice::periodicTransmitStop(const LynxId & lynxId)
 			return;
 		}
 	}
+}
+
+void LynxIoDevice::remotePeriodicStart(const LynxId & lynxId, uint32_t interval)
+{
+	// ---------------------------- Frame --------------------------------
+	// -------------------------------------------------------------------
+	// |    Description    |    Size    |     Index    |    Contents     |
+	// -------------------------------------------------------------------
+	// |   Static header   |     1      |       0      |      'A'        |
+	// |    Datagram Id    |     1      |       1      |      255        |
+	// | Internal data id  |     1      |       2      |       4         |
+	// |     Struct Id     |     1      |       3      |    0 -> 254     |
+	// |  Variable Index   |     1      |       4      |    0 -> 255     |
+	// | Periodic interval |     4      |     5 -> 8   | 0 -> (2^32 - 1) |
+	// |     Checksum      |     1      |       9      |    0 -> 255     |
+	// -------------------------------------------------------------------
+
+	_writeBuffer.reserve(10);
+	_writeBuffer.append(LYNX_STATIC_HEADER);
+	_writeBuffer.append(LYNX_INTERNALS_HEADER);
+	_writeBuffer.append(LynxLib::E_LynxInternals::eStartPeriodic);
+	_writeBuffer.append(_lynx->structId(lynxId));
+	_writeBuffer.append(char(lynxId.variableIndex + 1));
+	LynxLib::expandInt(int32_t(interval), _writeBuffer);
+	LynxLib::addChecksum(_writeBuffer);
+
+	this->write();
+}
+
+void LynxIoDevice::remotePeriodicStop(const LynxId & lynxId)
+{
+	// ---------------------------- Frame --------------------------------
+	// -------------------------------------------------------------------
+	// |    Description    |    Size    |     Index    |    Contents     |
+	// -------------------------------------------------------------------
+	// |   Static header   |     1      |       0      |      'A'        |
+	// |    Datagram Id    |     1      |       1      |      255        |
+	// | Internal data id  |     1      |       2      |       5         |
+	// |     Struct Id     |     1      |       3      |    0 -> 254     |
+	// |  Variable Index   |     1      |       4      |    0 -> 255     |
+	// |     Checksum      |     1      |       5      |    0 -> 255     |
+	// -------------------------------------------------------------------
+
+	_writeBuffer.reserve(6);
+	_writeBuffer.append(LYNX_STATIC_HEADER);
+	_writeBuffer.append(LYNX_INTERNALS_HEADER);
+	_writeBuffer.append(LynxLib::E_LynxInternals::eStopPeriodic);
+	_writeBuffer.append(_lynx->structId(lynxId));
+	_writeBuffer.append(char(lynxId.variableIndex + 1));
+	LynxLib::addChecksum(_writeBuffer);
+
+	this->write();
 }
 
 LynxDeviceInfo LynxIoDevice::lynxDeviceInfo()

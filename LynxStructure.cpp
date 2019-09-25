@@ -238,6 +238,8 @@ namespace LynxLib
 		"Scan received",
 		"Data copied to buffer",
 		"Pull request received",
+		"Periodic transmit started",
+		"Periodic transmit stopped",
 		"Error separator",
 		"Out of sync",
 		"Struct id not found",
@@ -355,6 +357,33 @@ namespace LynxLib
 		}
 
 		buffer.append(checksum);
+	}
+
+	void expandInt(int32_t input, LynxByteArray & buffer)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			buffer.append(char((input >> (8 * i)) & 0xff));
+		}
+	}
+
+	int32_t combineInt(const LynxByteArray & buffer, int startIndex)
+	{
+		if ((buffer.count() - startIndex) < 4) 
+			return 0;
+
+		int32_t value = 0;
+		for (int i = 0; i < 4; i++)
+		{
+			// char tmpChar = buffer.at(startIndex + i);
+			// int32_t tmpI32 = int32_t(tmpChar);
+			// tmpI32 = tmpI32 << (8 * i);
+			// tmpI32 = tmpI32 & (int32_t(0xff) << (8 * i));
+
+			value |= ((int32_t(buffer.at(startIndex + i)) << (8 * i)) & (int32_t(0xff) << (8 * i)));
+		}
+
+		return value;
 	}
 
 
@@ -578,6 +607,9 @@ void LynxStructure::fromArray(const char * buffer, int size, LynxInfo & lynxInfo
 
 LynxId LynxStructure::addVariable(int structIndex, LynxLib::E_LynxDataType dataType, const LynxString & description)
 {
+	if ((dataType <= LynxLib::eInvalidType) || (dataType >= LynxLib::eLynxType_EndOfList))
+		return LynxId();
+
 	this->append();
 	this->last().init(dataType, &description);
 
@@ -631,6 +663,14 @@ int LynxStructure::localSize(int variableIndex) const
 	{
 		return _data[variableIndex].localSize();
 	}
+}
+
+LynxString LynxStructure::description()
+{
+	if(_description == LYNX_NULL)
+		return LynxString();
+
+	return *_description;
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -894,6 +934,12 @@ int LynxManager::localSize(const LynxId & lynxId) const
 
 LynxId LynxManager::addStructure(char structId, const LynxString & description, int size)
 {
+	for (int i = 0; i < _count; i++)
+	{
+		if ((_data[i].structId() == structId) || (_data[i].description() == description))
+			return LynxId();
+	}
+
 	LynxId temp;
 	temp.structIndex = this->append();
 	this->last().init(structId, &description, size);
@@ -903,12 +949,129 @@ LynxId LynxManager::addStructure(char structId, const LynxString & description, 
 	return temp;
 }
 
+LynxDynamicId LynxManager::addStructure(const LynxStructInfo & structInfo)
+{
+	for (int i = 0; i < _count; i++)
+	{
+		if ((_data[i].structId() == structInfo.structId) || (_data[i].description() == structInfo.description))
+			return LynxDynamicId();
+	}
+
+	LynxDynamicId tempId;
+	tempId.variableIds.reserve(structInfo.variables.count());
+
+	tempId.structId = this->addStructure(structInfo.structId, structInfo.description, structInfo.variables.count());
+
+	for (int i = 0; i < structInfo.variables.count(); i++)
+	{
+		tempId.variableIds.append(this->addVariable(tempId.structId, structInfo.variables.at(i).dataType, structInfo.variables.at(i).description));
+	}
+
+	return tempId;
+}
+
 LynxId LynxManager::addVariable(const LynxId & parentStruct, LynxLib::E_LynxDataType dataType, const LynxString & description)
 {
         if ((parentStruct.structIndex < 0) || (parentStruct.structIndex > _count))
-        return (LynxId(-1, -1));
+        return (LynxId());
 		 	
         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType, description);
+}
+
+LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId)
+{
+	if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
+		return LynxLib::eInvalidType;
+	else if ((lynxId.variableIndex < 0) || (lynxId.variableIndex >= _data[lynxId.structIndex].count()))
+		return LynxLib::eInvalidType;
+	
+	return _data[lynxId.structIndex].at(lynxId.variableIndex).dataType();
+}
+
+void LynxManager::setValue(double value, const LynxId & lynxId)
+{
+	switch (this->dataType(lynxId))
+	{
+	case LynxLib::eInt8:
+		this->variable(lynxId).var_i8() = int8_t(value);
+		break;
+	case LynxLib::eUint8:
+		this->variable(lynxId).var_u8() = uint8_t(value);
+		break;
+	case LynxLib::eInt16:
+		this->variable(lynxId).var_i16() = int16_t(value);
+		break;
+	case LynxLib::eUint16:
+		this->variable(lynxId).var_u16() = uint16_t(value);
+		break;
+	case LynxLib::eInt32:
+		this->variable(lynxId).var_i32() = int32_t(value);
+		break;
+	case LynxLib::eUint32:
+		this->variable(lynxId).var_u32() = uint32_t(value);
+		break;
+	case LynxLib::eInt64:
+		this->variable(lynxId).var_i64() = int64_t(value);
+		break;
+	case LynxLib::eUint64:
+		this->variable(lynxId).var_u64() = uint64_t(value);
+		break;
+	case LynxLib::eFloat:
+		this->variable(lynxId).var_float() = float(value);
+		break;
+	case LynxLib::eDouble:
+		this->variable(lynxId).var_double() = value;
+		break;
+	default:
+		break;
+	}
+}
+
+double LynxManager::getValue(const LynxId & lynxId)
+{
+	switch (this->dataType(lynxId))
+	{
+	case LynxLib::eInt8:
+		return double(this->variable(lynxId).var_i8());
+	case LynxLib::eUint8:
+		return double(this->variable(lynxId).var_u8());
+	case LynxLib::eInt16:
+		return double(this->variable(lynxId).var_i16());
+	case LynxLib::eUint16:
+		return double(this->variable(lynxId).var_u16());
+	case LynxLib::eInt32:
+		return double(this->variable(lynxId).var_i32());
+	case LynxLib::eUint32:
+		return double(this->variable(lynxId).var_u32());
+	case LynxLib::eInt64:
+		return double(this->variable(lynxId).var_i64());
+	case LynxLib::eUint64:
+		return double(this->variable(lynxId).var_u64());
+	case LynxLib::eFloat:
+		return double(this->variable(lynxId).var_float());
+	case LynxLib::eDouble:
+		return this->variable(lynxId).var_double();
+	default:
+		break;
+	}
+
+	return 0.0;
+}
+
+void LynxManager::setString(const LynxString & str, const LynxId & lynxId)
+{
+	if (this->dataType(lynxId) == LynxLib::eString)
+	{
+		this->variable(lynxId).var_string() = str;
+	}
+}
+
+LynxString LynxManager::getString(const LynxId & lynxId)
+{
+	if (this->dataType(lynxId) != LynxLib::eString)
+		return LynxString();
+
+	return this->variable(lynxId).var_string();
 }
 
 int LynxManager::structVariableCount(int structIndex)
