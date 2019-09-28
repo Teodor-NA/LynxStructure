@@ -21,7 +21,7 @@ LynxType::LynxType()
 			_endianness = LynxLib::eBigEndian;
 	}
 
-	_dataType = LynxLib::eInvalidType;
+	_dataType = LynxLib::eNotInitialized;
 	_var = LYNX_NULL;
 	_str = LYNX_NULL;
 	_description = LYNX_NULL;
@@ -61,15 +61,17 @@ LynxType::~LynxType()
 void LynxType::init(LynxLib::E_LynxDataType dataType, const LynxString * const description)
 {
 	_dataType = dataType;
-	if (_dataType > LynxLib::eInvalidType)
+	LynxLib::E_LynxDataType tmpType = LynxLib::E_LynxDataType(dataType & 0x7f);
+
+	if (tmpType > LynxLib::eNotInitialized)
 	{
-		if (_dataType < LynxLib::eString)
+		if (tmpType < LynxLib::eString_RW)
 		{
 			if (_var != LYNX_NULL)
 				delete _var;
 			_var = new LynxUnion();
 		}
-		else if (_dataType == LynxLib::eString)
+		else if (tmpType == LynxLib::eString_RW)
 		{
 			if (_str != LYNX_NULL)
 				delete _str;
@@ -102,9 +104,19 @@ int LynxType::toArray(LynxByteArray & buffer, LynxLib::E_LynxState & state) cons
 
     LynxByteArray tempBuffer(transferSize);
 
-	if ((_dataType > LynxLib::eInvalidType) && (_dataType < LynxLib::eString))
+	if ((_dataType == LynxLib::eString_RW) || (_dataType == LynxLib::eString_RO))
+	{
+		tempBuffer.append(char(transferSize - 1));				// Add the size
+		tempBuffer.append(_str->toCharArray(), _str->count());	// Add the string
+	}
+	else
 	{
 		int localSize = this->localSize();
+		if (localSize < 1) // Datatype not recognized
+		{
+			state = LynxLib::eDataTypeNotFound;
+			return 0;
+		}
 
 		switch (LynxType::endianness())
 		{
@@ -133,14 +145,6 @@ int LynxType::toArray(LynxByteArray & buffer, LynxLib::E_LynxState & state) cons
 			return 0;
 		}
 	}
-	else if (_dataType == LynxLib::eString)
-	{
-		tempBuffer.append(char(transferSize - 1));				// Add the size
-		tempBuffer.append(_str->toCharArray(), _str->count());	// Add the string
-	}
-	else
-		return 0;
-		
 
     buffer.append(tempBuffer);
 
@@ -151,15 +155,35 @@ int LynxType::fromArray(const LynxByteArray & buffer, int startIndex, LynxLib::E
 {        	
 	int transferSize;
 
-	if ((_dataType > LynxLib::eInvalidType) && (_dataType < LynxLib::eString))
+	if ((_dataType == LynxLib::eString_RW) || (_dataType == LynxLib::eString_RO))
+	{
+		transferSize = int(buffer.at(startIndex)); // If it's a string the first byte should specify the size
+		transferSize++; // Increment transfersize to include the size specifier
+
+		if ((_dataType & 0x80) != 0) // Read only
+			return transferSize;
+
+		_str->clear();
+		_str->append(&buffer.at(startIndex + 1), (transferSize - 1));
+	}
+	else
 	{
 		transferSize = this->transferSize();
+		if ((_dataType & 0x80) != 0) // Read only
+			return transferSize;
+
+		if (transferSize < 1) // Datatype not recognized
+		{
+			state = LynxLib::eDataTypeNotFound;
+			return 0;
+		}
+
 		int localSize = this->localSize();
 
 		LynxByteArray tempBuffer(transferSize);
 		buffer.subList(tempBuffer, startIndex, (startIndex + transferSize - 1));
 
-		int count =LynxLib::mergeArray(tempBuffer, localSize);
+		int count = LynxLib::mergeArray(tempBuffer, localSize);
 
 		if (count != localSize)
 		{
@@ -183,44 +207,30 @@ int LynxType::fromArray(const LynxByteArray & buffer, int startIndex, LynxLib::E
 			break;
 		default:
 			state = LynxLib::eEndiannessNotSet;
-			return 0;
+			break;
 		}
 	}
-	else if (_dataType == LynxLib::eString)
-	{
-		transferSize = int(buffer.at(startIndex)); // If it's a string the first byte should specify the size
-
-		_str->clear();
-		_str->append(&buffer.at(startIndex + 1), transferSize);
-		transferSize++; // Increment transfersize for the return variable to be correct
-	}
-	else
-		return 0;
 
     return transferSize;
 }
 
 int LynxType::localSize() const 
 {
-	if ((_dataType > LynxLib::eInvalidType) && (_dataType < LynxLib::eString))
-		return LynxLib::localSize(_dataType);
-	else if (_dataType == LynxLib::eString)
+	if ((_dataType == LynxLib::eString_RW) || (_dataType == LynxLib::eString_RO))
 		return _str->count();
 	else
-		return 0;
+		return LynxLib::localSize(_dataType);
 }
 
 int LynxType::transferSize() const 
 {
-	if ((_dataType > LynxLib::eInvalidType) && (_dataType < LynxLib::eString))
-		return LynxLib::transferSize(_dataType);
-	else if (_dataType == LynxLib::eString)
+	if ((_dataType == LynxLib::eString_RW) || (_dataType == LynxLib::eString_RO))
 		if (_str->count() > 255) // maximum string size
 			return 256;
 		else
 			return (_str->count() + 1); // Add one for the size specifier
 	else
-		return 0;
+		return LynxLib::transferSize(_dataType);
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -229,75 +239,32 @@ int LynxType::transferSize() const
 
 namespace LynxLib
 {
-	const LynxString lynxStateTextList[LynxLib::eLynxState_EndOfList] =
-	{
-		"No change",
-		"Update separator",
-		"New data received",
-		"New device info received",
-		"Scan received",
-		"Data copied to buffer",
-		"Pull request received",
-		"Periodic transmit started",
-		"Periodic transmit stopped",
-		"Error separator",
-		"Out of sync",
-		"Struct id not found",
-		"Variable index out of bounds",
-		"Buffer too small",
-		"Wrong checksum",
-		"Wrong static header",
-		"Wrong data length",
-		"Data length not found",
-		"No structures in list",
-		"Struct index out of bounds",
-		"Split array failed",
-		"Merge array failed",
-		"Endianness not set",
-		"Unknown error",
-		"Invalid struct id",
-		"Invalid internal id"
-	};
-
-	const LynxString lynxTypeTextList[LynxLib::eLynxType_EndOfList]
-	{
-		"Invalid type",
-		"8 bit signed int",
-		"8 bit unsigned int",
-		"16 bit signed int",
-		"16 bit unsigned int",
-		"32 bit signed int",
-		"32 bit unsigned int",
-		"64 bit signed int",
-		"64 bit unsigned int",
-		"Float",
-		"Double",
-		"String"
-	};
-
 	int localSize(LynxLib::E_LynxDataType dataType)
 	{
-		switch (dataType)
+		// Remove the access specifier (bit 7), since we only care about the size
+		LynxLib::E_LynxDataType tmp = LynxLib::E_LynxDataType(dataType & 0x7f);
+
+		switch (tmp)
 		{
-		case LynxLib::eInt8:
+		case LynxLib::eInt8_RW:
 			return sizeof(int8_t);
-		case LynxLib::eUint8:
+		case LynxLib::eUint8_RW:
 			return sizeof(uint8_t);
-		case LynxLib::eInt16:
+		case LynxLib::eInt16_RW:
 			return sizeof(int16_t);
-		case LynxLib::eUint16:
+		case LynxLib::eUint16_RW:
 			return sizeof(uint16_t);
-		case LynxLib::eInt32:
+		case LynxLib::eInt32_RW:
 			return sizeof(int32_t);
-		case LynxLib::eUint32:
+		case LynxLib::eUint32_RW:
 			return sizeof(uint32_t);
-		case LynxLib::eInt64:
+		case LynxLib::eInt64_RW:
 			return sizeof(int64_t);
-		case LynxLib::eUint64:
+		case LynxLib::eUint64_RW:
 			return sizeof(uint64_t);
-		case LynxLib::eFloat:
+		case LynxLib::eFloat_RW:
 			return sizeof(float);
-		case LynxLib::eDouble:
+		case LynxLib::eDouble_RW:
 			return sizeof(double);
 		default:
 			break;
@@ -308,27 +275,30 @@ namespace LynxLib
 
 	int transferSize(LynxLib::E_LynxDataType dataType)
 	{
-		switch (dataType)
+		// Remove the access specifier (bit 7), since we only care about the size
+		LynxLib::E_LynxDataType tmp = LynxLib::E_LynxDataType(dataType & 0x7f);
+
+		switch (tmp)
 		{
-		case LynxLib::eInt8:
+		case LynxLib::eInt8_RW:
 			return 1;
-		case LynxLib::eUint8:
+		case LynxLib::eUint8_RW:
 			return 1;
-		case LynxLib::eInt16:
+		case LynxLib::eInt16_RW:
 			return 2;
-		case LynxLib::eUint16:
+		case LynxLib::eUint16_RW:
 			return 2;
-		case LynxLib::eInt32:
+		case LynxLib::eInt32_RW:
 			return 4;
-		case LynxLib::eUint32:
+		case LynxLib::eUint32_RW:
 			return 4;
-		case LynxLib::eInt64:
+		case LynxLib::eInt64_RW:
 			return 8;
-		case LynxLib::eUint64:
+		case LynxLib::eUint64_RW:
 			return 8;
-		case LynxLib::eFloat:
+		case LynxLib::eFloat_RW:
 			return 4;
-		case LynxLib::eDouble:
+		case LynxLib::eDouble_RW:
 			return 8;
 		default:
 			break;
@@ -469,6 +439,86 @@ namespace LynxLib
 }
 
 //-----------------------------------------------------------------------------------------------------------
+//------------------------------------------- Text lists ----------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------
+
+
+const LynxString LynxTextList::_lynxStates[LynxLib::eLynxState_EndOfList] =
+{
+	"No change",
+	"Update separator",
+	"New data received",
+	"New device info received",
+	"Scan received",
+	"Data copied to buffer",
+	"Pull request received",
+	"Periodic transmit started",
+	"Periodic transmit stopped",
+	"Error separator",
+	"Out of sync",
+	"Struct id not found",
+	"Variable index out of bounds",
+	"Buffer too small",
+	"Wrong checksum",
+	"Wrong static header",
+	"Wrong data length",
+	"Data length not found",
+	"No structures in list",
+	"Struct index out of bounds",
+	"Split array failed",
+	"Merge array failed",
+	"Endianness not set",
+	"Unknown error",
+	"Invalid struct id",
+	"Invalid internal id",
+	"Data type not recognized"
+};
+
+const LynxString LynxTextList::_lynxDataTypes[LynxLib::eLynxType_RW_EndOfList] =
+{
+	"Not initialized",
+	"8 bit signed int",
+	"8 bit unsigned int",
+	"16 bit signed int",
+	"16 bit unsigned int",
+	"32 bit signed int",
+	"32 bit unsigned int",
+	"64 bit signed int",
+	"64 bit unsigned int",
+	"Float",
+	"Double",
+	"String"
+};
+
+LynxString LynxTextList::lynxState(LynxLib::E_LynxState state)
+{
+	if ((state < 0) || (state > LynxLib::eLynxState_EndOfList))
+		return "N/A";
+
+	return _lynxStates[state];
+}
+
+LynxString LynxTextList::lynxDataType(LynxLib::E_LynxDataType dataType)
+{
+	LynxLib::E_LynxDataType temp = LynxLib::E_LynxDataType(dataType & 0x7f);
+
+	if ((temp < 0) || (temp > LynxLib::eLynxType_RW_EndOfList))
+		return "N/A";
+
+    return _lynxDataTypes[temp];
+}
+
+LynxString LynxTextList::lynxAccessSpecifier(LynxLib::E_LynxDataType dataType)
+{
+	LynxLib::E_LynxDataType temp = LynxLib::E_LynxDataType(dataType & 0x80);
+
+	if (temp == 0)
+		return "Read write";
+	
+	return "Read only";
+}
+
+//-----------------------------------------------------------------------------------------------------------
 //---------------------------------------- LynxStructure ----------------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
@@ -476,6 +526,7 @@ LynxStructure::LynxStructure() : LynxList()
 {
 	_description = LYNX_NULL;
 	_structId = -1;
+	_enableReadOnly = false;
 }
 
 LynxStructure::~LynxStructure()
@@ -487,8 +538,10 @@ LynxStructure::~LynxStructure()
 	}
 }
 
-void LynxStructure::init(char structId, const LynxString * const description, int size)
+void LynxStructure::init(char structId, const LynxString * const description, bool enableReadOnly, int size)
 {
+	_enableReadOnly = enableReadOnly;
+
 	LynxList::reserve(size);
 
 	_structId = structId;
@@ -607,7 +660,13 @@ void LynxStructure::fromArray(const char * buffer, int size, LynxInfo & lynxInfo
 
 LynxId LynxStructure::addVariable(int structIndex, LynxLib::E_LynxDataType dataType, const LynxString & description)
 {
-	if ((dataType <= LynxLib::eInvalidType) || (dataType >= LynxLib::eLynxType_EndOfList))
+	if (!_enableReadOnly)
+		dataType = LynxLib::E_LynxDataType(dataType & 0x7f); // Remove read only specifier
+
+	if (
+		((dataType <= LynxLib::eNotInitialized) || (dataType >= LynxLib::eLynxType_RW_EndOfList)) &&
+		((dataType <= LynxLib::eLynxType_RO_StartOfList) || (dataType >= LynxLib::eLynxType_RO_EndOfList))
+		)
 		return LynxId();
 
 	this->append();
@@ -756,32 +815,8 @@ void LynxManager::copy(const LynxId & source, const LynxId & target)
 	if ((source.variableIndex < 0) || (target.variableIndex < 0))
 		return;
 		
-	// Should probably find a better way to do this...
-	if 
-	(
-		(_data[target.structIndex][target.variableIndex].dataType() > LynxLib::eInvalidType) &&
-		(_data[target.structIndex][target.variableIndex].dataType() < LynxLib::eString) &&
-		(_data[source.structIndex][source.variableIndex].dataType() > LynxLib::eInvalidType) &&
-		(_data[source.structIndex][source.variableIndex].dataType() < LynxLib::eString)
-	)
-		_data[target.structIndex][target.variableIndex].var_i64() = _data[source.structIndex][source.variableIndex].var_i64();
-		
-	if
-	(
-		(_data[target.structIndex][target.variableIndex].dataType() == LynxLib::eString) &&
-		(_data[source.structIndex][source.variableIndex].dataType() == LynxLib::eString)
-	)
-		_data[target.structIndex][target.variableIndex].var_string() = _data[source.structIndex][source.structIndex].var_string();
+	_data[target.structIndex][target.variableIndex] = _data[source.structIndex].at(source.variableIndex);
 }
-
-// LynxByteArray LynxManager::toArray(const LynxId & lynxId) const
-// {
-// 	LynxByteArray temp;
-// 
-// 	this->toArray(temp, lynxId);
-// 
-// 	return temp;
-// }
 
 LynxLib::E_LynxState LynxManager::toArray(LynxByteArray & buffer, const LynxId & lynxId) const
 {
@@ -819,14 +854,6 @@ LynxLib::E_LynxState LynxManager::toArray(LynxByteArray & buffer, const LynxId &
 
 	LynxLib::addChecksum(buffer);
 
-	//char checksum = 0;
-	//for (int i = 0; i < buffer.count(); i++)
-	//{
-	//	checksum += buffer.at(i);
-	//}
-	//
-	//buffer.append(checksum & char(0xff));
-
 	return state;
 }
 
@@ -854,8 +881,8 @@ LynxLib::E_LynxState LynxManager::toArray(char * buffer, int maxSize, int & copi
 void LynxManager::fromArray(const LynxByteArray & buffer, LynxInfo & lynxInfo)
 {
 	lynxInfo.lynxId.structIndex = this->findId(buffer.at(1));
-	lynxInfo.lynxId.variableIndex = buffer.at(2) - 1;
-	lynxInfo.dataLength = buffer.at(3);
+	lynxInfo.lynxId.variableIndex = (int(buffer.at(2)) & 0xff) - 1;
+	lynxInfo.dataLength = int(buffer.at(3)) & 0xff;
 	lynxInfo.deviceId = buffer.at(4);
 
 	// Check the struct ID
@@ -879,14 +906,6 @@ void LynxManager::fromArray(const LynxByteArray & buffer, LynxInfo & lynxInfo)
 		lynxInfo.state = LynxLib::eBufferTooSmall;
 		return;
 	}
-
-	// Calculate the checksum
-	//int checksumIndex = totalSize - 1;
-	//char checksum = 0;
-	//for (int i = 0; i < checksumIndex; i++)
-	//{
-	//	checksum += buffer.at(i);
-	//}
 		
 	// Check the checksum
 	if (!LynxLib::checkChecksum(buffer))
@@ -894,22 +913,6 @@ void LynxManager::fromArray(const LynxByteArray & buffer, LynxInfo & lynxInfo)
 		lynxInfo.state = LynxLib::eWrongChecksum;
 		return;
 	}
-
-
-
-	// Make a temporary buffer and extract the data
-    // LynxByteArray temp;
-    // buffer.subList(temp, LYNX_HEADER_BYTES, LYNX_HEADER_BYTES + lynxInfo.dataLength - 1);
-
-	// Merge the databuffer if the local size is different from the transfersize
-    // int count = mergeArray(temp, _data[lynxInfo.lynxId.structIndex].localSize(lynxInfo.lynxId.variableIndex));
-
-	// Check if the merge was successful
-    // if (count < 0)
-    // {
-    // 	lynxInfo.state = eMergeArrayFailed;
-    // 	return;
-    // }
 
 	// Copy the data
     _data[lynxInfo.lynxId.structIndex].fromArray(buffer, lynxInfo);
@@ -932,7 +935,7 @@ int LynxManager::localSize(const LynxId & lynxId) const
 	return _data[lynxId.structIndex].localSize(lynxId.variableIndex);
 }
 
-LynxId LynxManager::addStructure(char structId, const LynxString & description, int size)
+LynxId LynxManager::addStructure(char structId, const LynxString & description, bool enableReadOnly, int size)
 {
 	for (int i = 0; i < _count; i++)
 	{
@@ -942,14 +945,12 @@ LynxId LynxManager::addStructure(char structId, const LynxString & description, 
 
 	LynxId temp;
 	temp.structIndex = this->append();
-	this->last().init(structId, &description, size);
-	// this->last().reserve(size);
-	// this->last().setStructId(structId);
+	this->last().init(structId, &description, enableReadOnly, size);
 
 	return temp;
 }
 
-LynxDynamicId LynxManager::addStructure(const LynxStructInfo & structInfo)
+LynxDynamicId LynxManager::addStructure(const LynxStructInfo & structInfo, bool enableReadOnly)
 {
 	for (int i = 0; i < _count; i++)
 	{
@@ -960,7 +961,7 @@ LynxDynamicId LynxManager::addStructure(const LynxStructInfo & structInfo)
 	LynxDynamicId tempId;
 	tempId.variableIds.reserve(structInfo.variables.count());
 
-	tempId.structId = this->addStructure(structInfo.structId, structInfo.description, structInfo.variables.count());
+	tempId.structId = this->addStructure(structInfo.structId, structInfo.description, enableReadOnly, structInfo.variables.count());
 
 	for (int i = 0; i < structInfo.variables.count(); i++)
 	{
@@ -981,45 +982,48 @@ LynxId LynxManager::addVariable(const LynxId & parentStruct, LynxLib::E_LynxData
 LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId)
 {
 	if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
-		return LynxLib::eInvalidType;
+		return LynxLib::eNotInitialized;
 	else if ((lynxId.variableIndex < 0) || (lynxId.variableIndex >= _data[lynxId.structIndex].count()))
-		return LynxLib::eInvalidType;
+		return LynxLib::eNotInitialized;
 	
 	return _data[lynxId.structIndex].at(lynxId.variableIndex).dataType();
 }
 
 void LynxManager::setValue(double value, const LynxId & lynxId)
 {
-	switch (this->dataType(lynxId))
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	switch (dataType)
 	{
-	case LynxLib::eInt8:
+	case LynxLib::eInt8_RW:
 		this->variable(lynxId).var_i8() = int8_t(value);
 		break;
-	case LynxLib::eUint8:
+	case LynxLib::eUint8_RW:
 		this->variable(lynxId).var_u8() = uint8_t(value);
 		break;
-	case LynxLib::eInt16:
+	case LynxLib::eInt16_RW:
 		this->variable(lynxId).var_i16() = int16_t(value);
 		break;
-	case LynxLib::eUint16:
+	case LynxLib::eUint16_RW:
 		this->variable(lynxId).var_u16() = uint16_t(value);
 		break;
-	case LynxLib::eInt32:
+	case LynxLib::eInt32_RW:
 		this->variable(lynxId).var_i32() = int32_t(value);
 		break;
-	case LynxLib::eUint32:
+	case LynxLib::eUint32_RW:
 		this->variable(lynxId).var_u32() = uint32_t(value);
 		break;
-	case LynxLib::eInt64:
+	case LynxLib::eInt64_RW:
 		this->variable(lynxId).var_i64() = int64_t(value);
 		break;
-	case LynxLib::eUint64:
+	case LynxLib::eUint64_RW:
 		this->variable(lynxId).var_u64() = uint64_t(value);
 		break;
-	case LynxLib::eFloat:
+	case LynxLib::eFloat_RW:
 		this->variable(lynxId).var_float() = float(value);
 		break;
-	case LynxLib::eDouble:
+	case LynxLib::eDouble_RW:
 		this->variable(lynxId).var_double() = value;
 		break;
 	default:
@@ -1029,27 +1033,30 @@ void LynxManager::setValue(double value, const LynxId & lynxId)
 
 double LynxManager::getValue(const LynxId & lynxId)
 {
-	switch (this->dataType(lynxId))
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	switch (dataType)
 	{
-	case LynxLib::eInt8:
+	case LynxLib::eInt8_RW:
 		return double(this->variable(lynxId).var_i8());
-	case LynxLib::eUint8:
+	case LynxLib::eUint8_RW:
 		return double(this->variable(lynxId).var_u8());
-	case LynxLib::eInt16:
+	case LynxLib::eInt16_RW:
 		return double(this->variable(lynxId).var_i16());
-	case LynxLib::eUint16:
+	case LynxLib::eUint16_RW:
 		return double(this->variable(lynxId).var_u16());
-	case LynxLib::eInt32:
+	case LynxLib::eInt32_RW:
 		return double(this->variable(lynxId).var_i32());
-	case LynxLib::eUint32:
+	case LynxLib::eUint32_RW:
 		return double(this->variable(lynxId).var_u32());
-	case LynxLib::eInt64:
+	case LynxLib::eInt64_RW:
 		return double(this->variable(lynxId).var_i64());
-	case LynxLib::eUint64:
+	case LynxLib::eUint64_RW:
 		return double(this->variable(lynxId).var_u64());
-	case LynxLib::eFloat:
+	case LynxLib::eFloat_RW:
 		return double(this->variable(lynxId).var_float());
-	case LynxLib::eDouble:
+	case LynxLib::eDouble_RW:
 		return this->variable(lynxId).var_double();
 	default:
 		break;
@@ -1060,15 +1067,21 @@ double LynxManager::getValue(const LynxId & lynxId)
 
 void LynxManager::setString(const LynxString & str, const LynxId & lynxId)
 {
-	if (this->dataType(lynxId) == LynxLib::eString)
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if (dataType == LynxLib::eString_RW) 
 	{
 		this->variable(lynxId).var_string() = str;
 	}
 }
 
 LynxString LynxManager::getString(const LynxId & lynxId)
-{
-	if (this->dataType(lynxId) != LynxLib::eString)
+{	
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if ((dataType != LynxLib::eString_RW) && (dataType != LynxLib::eString_RW))
 		return LynxString();
 
 	return this->variable(lynxId).var_string();

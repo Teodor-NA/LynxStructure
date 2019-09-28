@@ -75,7 +75,9 @@ const LynxInfo & LynxIoDevice::update()
 		{
 			this->read();
 
-			switch (_readBuffer.at(2))
+			LynxLib::E_LynxInternals temp = LynxLib::E_LynxInternals(int(_readBuffer.at(2)) & 0xff);
+
+			switch (temp)
 			{
 			case LynxLib::eDeviceInfo:
 				_state = LynxLib::eGetDeviceInfo;
@@ -127,7 +129,7 @@ const LynxInfo & LynxIoDevice::update()
 			}
 
 			_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(3));
-			_updateInfo.lynxId.variableIndex = int(_readBuffer.at(4)) - 1;
+			_updateInfo.lynxId.variableIndex = (int(_readBuffer.at(4)) & 0xff) - 1;
 
 			if (_updateInfo.lynxId.structIndex < 0)
 			{
@@ -178,7 +180,7 @@ const LynxInfo & LynxIoDevice::update()
 			}
 
 			_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(3));
-			_updateInfo.lynxId.variableIndex = int(_readBuffer.at(4)) - 1;
+			_updateInfo.lynxId.variableIndex = (int(_readBuffer.at(4)) & 0xff) - 1;
 
 			if (_updateInfo.lynxId.structIndex < 0)
 			{
@@ -227,7 +229,7 @@ const LynxInfo & LynxIoDevice::update()
 			}
 
 			_updateInfo.lynxId.structIndex = _lynx->findId(_readBuffer.at(3));
-			_updateInfo.lynxId.variableIndex = int(_readBuffer.at(4)) - 1;
+			_updateInfo.lynxId.variableIndex = (int(_readBuffer.at(4)) & 0xff) - 1;
 
 			if (_updateInfo.lynxId.structIndex < 0)
 			{
@@ -379,8 +381,10 @@ const LynxInfo & LynxIoDevice::update()
 	return _updateInfo;
 }
 
-void LynxIoDevice::periodicUpdate()
+LynxLib::E_LynxState LynxIoDevice::periodicUpdate()
 {
+	LynxLib::E_LynxState returnState = LynxLib::eNoChange;
+
 	_currentTime = this->getMillis();
 
 	int overtime;
@@ -390,9 +394,13 @@ void LynxIoDevice::periodicUpdate()
 		if (overtime >= 0)
 		{
 			_periodicTransmits[i].previousTimeStamp = _currentTime - overtime;
-			this->send(LynxId(_periodicTransmits.at(i)));
+			LynxLib::E_LynxState tmpState = this->send(LynxId(_periodicTransmits.at(i)));
+			if (returnState < LynxLib::eErrors)
+				returnState = tmpState;
 		}
 	}
+
+	return returnState;
 }
 
 LynxLib::E_LynxState LynxIoDevice::send(const LynxId & lynxId)
@@ -703,17 +711,17 @@ void LynxIoDevice::readDeviceInfo()
 	int readIndex = LYNX_HEADER_BYTES;
 	_deviceInfo.deviceId = _readBuffer.at(readIndex);
 	readIndex++;
-	int readLength = _readBuffer.at(readIndex);
+	int readLength = int(_readBuffer.at(readIndex)) & 0xff;
 	readIndex++;
 	_deviceInfo.description.clear();
 	_deviceInfo.description.append(&_readBuffer.at(readIndex), readLength);
 	readIndex += readLength;
-	readLength = _readBuffer.at(readIndex);
+	readLength = int(_readBuffer.at(readIndex)) & 0xff;
 	readIndex++;
 	_deviceInfo.lynxVersion.clear();
 	_deviceInfo.lynxVersion.append(&_readBuffer.at(readIndex), readLength);
 	readIndex += readLength;
-	_deviceInfo.structCount = _readBuffer.at(readIndex);
+	_deviceInfo.structCount = int(_readBuffer.at(readIndex)) & 0xff;
 	readIndex++;
 
 	_deviceInfo.structs.reserve(_deviceInfo.structCount);
@@ -738,12 +746,12 @@ void LynxIoDevice::readDeviceInfo()
 
 		_deviceInfo.structs[i].structId = _readBuffer.at(readIndex);
 		readIndex++;
-		readLength = _readBuffer.at(readIndex);
+		readLength = int(_readBuffer.at(readIndex)) & 0xff;
 		readIndex++;
 		_deviceInfo.structs[i].description.clear();
 		_deviceInfo.structs[i].description.append(&_readBuffer.at(readIndex), readLength);
 		readIndex += readLength;
-		_deviceInfo.structs[i].variableCount = _readBuffer.at(readIndex);
+		_deviceInfo.structs[i].variableCount = int(_readBuffer.at(readIndex)) & 0xff;
 		readIndex++;
 
 		_deviceInfo.structs[i].variables.reserve(_deviceInfo.structs.at(i).variableCount);
@@ -767,12 +775,12 @@ void LynxIoDevice::readDeviceInfo()
 
 			_deviceInfo.structs[i].variables[j].index = _readBuffer.at(readIndex);
 			readIndex++;
-			readLength = _readBuffer.at(readIndex);
+			readLength = int(_readBuffer.at(readIndex)) & 0xff;
 			readIndex++;
 			_deviceInfo.structs[i].variables[j].description.clear();
 			_deviceInfo.structs[i].variables[j].description.append(&_readBuffer.at(readIndex), readLength);
 			readIndex += readLength;
-			_deviceInfo.structs[i].variables[j].dataType = LynxLib::E_LynxDataType(_readBuffer.at(readIndex));
+			_deviceInfo.structs[i].variables[j].dataType = LynxLib::E_LynxDataType(int(_readBuffer.at(readIndex)) & 0xff);
 			readIndex++;
 		}
 	}
