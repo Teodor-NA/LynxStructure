@@ -46,7 +46,7 @@ public:
 	const LynxInfo & update();
 
 	/// Must be run as often as possible, or on timer interrupts if possible.
-	void periodicUpdate();
+	LynxLib::E_LynxState periodicUpdate();
 
     LynxLib::E_LynxState send(const LynxId & lynxId);
     bool opened() { return _open; }

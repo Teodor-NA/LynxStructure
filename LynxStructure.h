@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.3 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.4 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.3"
+#define LYNX_VERSION "2.1.2.4"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -115,27 +115,47 @@ namespace LynxLib
 		eUnknownError,
 		eInvalidStructId,
 		eInvalidInternalId,
+		eDataTypeNotFound,
 		eLynxState_EndOfList
 	};
-	extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 
+	// extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 
 
 	enum E_LynxDataType
 	{
-		eInvalidType = 0,
-		eInt8,
-		eUint8,
-		eInt16,
-		eUint16,
-		eInt32,
-		eUint32,
-		eInt64,
-		eUint64,
-		eFloat,
-		eDouble,
-		eString,
-		eLynxType_EndOfList
+		eNotInitialized = 0,
+		eInt8_RW,
+		eUint8_RW,
+		eInt16_RW,
+		eUint16_RW,
+		eInt32_RW,
+		eUint32_RW,
+		eInt64_RW,
+		eUint64_RW,
+		eFloat_RW,
+		eDouble_RW,
+		eString_RW,
+		eLynxType_RW_EndOfList,
+		eLynxType_RO_StartOfList = 0x80,
+		eInt8_RO,
+		eUint8_RO,
+		eInt16_RO,
+		eUint16_RO,
+		eInt32_RO,
+		eUint32_RO,
+		eInt64_RO,
+		eUint64_RO,
+		eFloat_RO,
+		eDouble_RO,
+		eString_RO,
+		eLynxType_RO_EndOfList
 	};
-	extern const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList];
+	// extern const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList];
+	
+	enum E_LynxAccessMode
+	{
+		eReadWrite,
+		eReadOnly
+	};
 
 	enum E_Endianness
 	{
@@ -160,6 +180,21 @@ namespace LynxLib
 	void expandInt(int32_t input, LynxByteArray & buffer);
 	int32_t combineInt(const LynxByteArray & buffer, int startIndex);
 }
+
+//-----------------------------------------------------------------------------------------------------------
+//------------------------------------------- Text lists ----------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------
+
+class LynxTextList
+{
+	static const LynxString _lynxStates[LynxLib::eLynxState_EndOfList];
+	static const LynxString _lynxDataTypes[LynxLib::eLynxType_RW_EndOfList];
+
+public:
+	static LynxString lynxState(LynxLib::E_LynxState state);
+	static LynxString lynxDataType(LynxLib::E_LynxDataType dataType);
+	static LynxString lynxAccessSpecifier(LynxLib::E_LynxDataType dataType);
+};
 
 //-----------------------------------------------------------------------------------------------------------
 //------------------------------------------- Structures ----------------------------------------------------
@@ -300,6 +335,8 @@ public:
 	const LynxString & var_string() const { return *_str; }
 
 	LynxLib::E_LynxDataType dataType() const { return _dataType; }
+    bool readOnly() { return ((_dataType & 0x80) != 0); }
+
 	int localSize() const;
 	int transferSize() const;
 
@@ -316,7 +353,7 @@ public:
 		if (&other == this)
 			return *this;
 
-		if (_dataType == LynxLib::eInvalidType)
+		if (_dataType == LynxLib::eNotInitialized)
 			this->init(other._dataType, other._description);
 
 		if ((_var != LYNX_NULL) && (other._var != LYNX_NULL))
@@ -365,7 +402,7 @@ public:
 	using LynxList::count;
 	using LynxList::reserve;
 
-	void init(char structId, const LynxString * const description, int size = 0);
+	void init(char structId, const LynxString * const description, bool enableReadOnly = false, int size = 0);
 
 	void getInfo(LynxStructInfo & structInfo) const;
 	LynxStructInfo getInfo() const;
@@ -398,6 +435,7 @@ public:
 private:
 	char _structId;
 	LynxString * _description;
+	bool _enableReadOnly;
 };
 
 //-----------------------------------------------------------------------------------------------------------
@@ -438,8 +476,8 @@ public:
 	int transferSize(const LynxId & lynxId) const;
 	int localSize(const LynxId & lynxId) const;
 
-	LynxId addStructure(char structId, const LynxString & description = "", int size = 0);
-	LynxDynamicId addStructure(const LynxStructInfo & structInfo);
+	LynxId addStructure(char structId, const LynxString & description = "", bool enableReadOnly = false, int size = 0);
+	LynxDynamicId addStructure(const LynxStructInfo & structInfo, bool enableReadOnly = false);
     LynxId addVariable(const LynxId & parentStruct, LynxLib::E_LynxDataType dataType, const LynxString & description = "");
 
 	LynxLib::E_LynxDataType dataType(const LynxId & lynxId);
@@ -498,8 +536,8 @@ class LynxVar_i8 : public LynxVar
 {
 public:
     // LynxVar_i8(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eInt8, description) {}
+    LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt8_RO : LynxLib::eInt8_RW, description) {}
 		
 	operator const int8_t&() const { return _lynxManager->variable(_lynxId).var_i8(); }
 
@@ -514,8 +552,8 @@ class LynxVar_u8 : public LynxVar
 {
 public:
     // LynxVar_u8(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eUint8, description) {}
+    LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint8_RO : LynxLib::eUint8_RW, description) {}
 
 	operator const uint8_t&() const { return _lynxManager->variable(_lynxId).var_u8(); }
 
@@ -529,8 +567,8 @@ class LynxVar_i16 : public LynxVar
 {
 public:
     // LynxVar_i16(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eInt16, description) {}
+    LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt16_RO : LynxLib::eInt16_RW, description) {}
 
 	operator const int16_t&() const { return _lynxManager->variable(_lynxId).var_i16(); }
 
@@ -544,8 +582,8 @@ class LynxVar_u16 : public LynxVar
 {
 public:
     // LynxVar_u16(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eUint16, description) {}
+    LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint16_RO : LynxLib::eUint16_RW, description) {}
 
 	operator const uint16_t&() const { return _lynxManager->variable(_lynxId).var_u16(); }
 
@@ -559,8 +597,8 @@ class LynxVar_i32 : public LynxVar
 {
 public:
     // LynxVar_i32(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eInt32, description) {}
+    LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt32_RO : LynxLib::eInt32_RW, description) {}
 
 	operator const int32_t&() const { return _lynxManager->variable(_lynxId).var_i32(); }
 
@@ -574,8 +612,8 @@ class LynxVar_u32 : public LynxVar
 {
 public:
     // LynxVar_u32(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eUint32, description) {}
+    LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint32_RO : LynxLib::eUint32_RW, description) {}
 
 	operator const uint32_t&() const { return _lynxManager->variable(_lynxId).var_u32(); }
 
@@ -589,8 +627,8 @@ class LynxVar_i64 : public LynxVar
 {
 public:
     // LynxVar_i64(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eInt64, description) {}
+    LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt64_RO : LynxLib::eInt64_RW, description) {}
 
 	operator const int64_t&() const { return _lynxManager->variable(_lynxId).var_i64(); }
 
@@ -604,8 +642,8 @@ class LynxVar_u64 : public LynxVar
 {
 public:
     // LynxVar_u64(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eUint64, description) {}
+    LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint64_RO : LynxLib::eUint64_RW, description) {}
 
 	operator const uint64_t&() const { return _lynxManager->variable(_lynxId).var_u64(); }
 
@@ -619,8 +657,8 @@ class LynxVar_float : public LynxVar
 {
 public:
     // LynxVar_float(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eFloat, description) {}
+    LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eFloat_RO : LynxLib::eFloat_RW, description) {}
 
 	operator const float&() const { return _lynxManager->variable(_lynxId).var_float(); }
 
@@ -634,8 +672,8 @@ class LynxVar_double : public LynxVar
 {
 public:
     // LynxVar_double(const LynxVar & other) : LynxVar(other) {}
-    LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-        LynxVar(lynxManager, parentStruct, LynxLib::eDouble, description) {}
+    LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+        LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eDouble_RO : LynxLib::eDouble_RW, description) {}
 
 	operator const double&() const { return _lynxManager->variable(_lynxId).var_double(); }
 
@@ -649,8 +687,8 @@ class LynxVar_string : public LynxVar
 {
 public:
 	// LynxVar_double(const LynxVar & other) : LynxVar(other) {}
-	LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "") :
-		LynxVar(lynxManager, parentStruct, LynxLib::eString, description) {}
+	LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+		LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eString_RO : LynxLib::eString_RW, description) {}
 
 	operator const LynxString&() const { return _lynxManager->variable(_lynxId).var_string(); }
 
