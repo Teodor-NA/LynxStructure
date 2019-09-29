@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.3 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.4 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.3"
+#define LYNX_VERSION "2.1.2.4"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -335,6 +335,8 @@ public:
 	const LynxString & var_string() const { return *_str; }
 
 	LynxLib::E_LynxDataType dataType() const { return _dataType; }
+    bool readOnly() { return ((_dataType & 0x80) != 0); }
+
 	int localSize() const;
 	int transferSize() const;
 

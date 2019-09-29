@@ -872,7 +872,7 @@ LynxLib::E_LynxState LynxManager::toArray(char * buffer, int maxSize, int & copi
 	if (copiedSize < 0)
 	{
 		copiedSize = 0;
-		return LynxLib::eBufferTooSmall;
+        return LynxLib::eBufferTooSmall;
 	}
 
 	return state;
