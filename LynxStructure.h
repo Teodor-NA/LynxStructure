@@ -118,7 +118,6 @@ namespace LynxLib
 		eDataTypeNotFound,
 		eLynxState_EndOfList
 	};
-	// extern const LynxString lynxStateTextList[E_LynxState::eLynxState_EndOfList]; 
 
 	enum E_LynxDataType
 	{
@@ -149,7 +148,13 @@ namespace LynxLib
 		eString_RO,
 		eLynxType_RO_EndOfList
 	};
-	// extern const LynxString lynxTypeTextList[E_LynxDataType::eLynxType_EndOfList];
+
+    enum E_LynxSimplifiedType
+    {
+        eNotInit = 0,
+        eNumber,
+        eString
+    };
 	
 	enum E_LynxAccessMode
 	{
@@ -179,6 +184,8 @@ namespace LynxLib
 
 	void expandInt(int32_t input, LynxByteArray & buffer);
 	int32_t combineInt(const LynxByteArray & buffer, int startIndex);
+
+    E_LynxAccessMode accessMode(E_LynxDataType dataType);
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -277,7 +284,10 @@ struct LynxId
 
 struct LynxDynamicId
 {
-	LynxId structId;
+    LynxDynamicId() : structId(0) {}
+
+    char structId;
+    LynxId structLynxId;
 	LynxList<LynxId> variableIds;
 };
 
@@ -481,6 +491,7 @@ public:
     LynxId addVariable(const LynxId & parentStruct, LynxLib::E_LynxDataType dataType, const LynxString & description = "");
 
 	LynxLib::E_LynxDataType dataType(const LynxId & lynxId);
+    LynxLib::E_LynxSimplifiedType simplifiedType(const LynxId & lynxId);
 
 	void setValue(double value, const LynxId & lynxId);
 	double getValue(const LynxId & lynxId);
