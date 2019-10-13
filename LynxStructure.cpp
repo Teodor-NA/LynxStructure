@@ -436,6 +436,11 @@ namespace LynxLib
 
 		return mask;
 	}
+
+    E_LynxAccessMode accessMode(E_LynxDataType dataType)
+    {
+        return ((dataType & 0x80) != 0) ? eReadOnly : eReadWrite;
+    }
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -959,13 +964,14 @@ LynxDynamicId LynxManager::addStructure(const LynxStructInfo & structInfo, bool 
 	}
 
 	LynxDynamicId tempId;
+    tempId.structId = structInfo.structId;
 	tempId.variableIds.reserve(structInfo.variables.count());
 
-	tempId.structId = this->addStructure(structInfo.structId, structInfo.description, enableReadOnly, structInfo.variables.count());
+	tempId.structLynxId = this->addStructure(structInfo.structId, structInfo.description, enableReadOnly, structInfo.variables.count());
 
 	for (int i = 0; i < structInfo.variables.count(); i++)
 	{
-		tempId.variableIds.append(this->addVariable(tempId.structId, structInfo.variables.at(i).dataType, structInfo.variables.at(i).description));
+		tempId.variableIds.append(this->addVariable(tempId.structLynxId, structInfo.variables.at(i).dataType, structInfo.variables.at(i).description));
 	}
 
 	return tempId;
@@ -987,6 +993,27 @@ LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId)
 		return LynxLib::eNotInitialized;
 	
 	return _data[lynxId.structIndex].at(lynxId.variableIndex).dataType();
+}
+
+LynxLib::E_LynxSimplifiedType LynxManager::simplifiedType(const LynxId & lynxId)
+{
+    if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
+        return LynxLib::eNotInit;
+    else if ((lynxId.variableIndex < 0) || (lynxId.variableIndex >= _data[lynxId.structIndex].count()))
+        return LynxLib::eNotInit;
+
+    LynxLib::E_LynxDataType tempType = LynxLib::E_LynxDataType(_data[lynxId.structIndex].at(lynxId.variableIndex).dataType() & 0x7f);
+
+    if (tempType == LynxLib::eString_RW)
+    {
+        return LynxLib::eString;
+    }
+    else if ((tempType > LynxLib::eNotInitialized) && (tempType < LynxLib::eLynxType_RW_EndOfList))
+    {
+        return LynxLib::eNumber;
+    }
+
+    return LynxLib::eNotInit;
 }
 
 void LynxManager::setValue(double value, const LynxId & lynxId)
