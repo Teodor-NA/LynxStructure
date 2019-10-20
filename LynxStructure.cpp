@@ -90,7 +90,7 @@ void LynxType::init(LynxLib::E_LynxDataType dataType, const LynxString * const d
 	_description = new LynxString(*description);
 }
 
-LynxString LynxType::description()
+LynxString LynxType::description() const
 {
 	if (_description == LYNX_NULL)
 		return "Not defined";
@@ -729,7 +729,7 @@ int LynxStructure::localSize(int variableIndex) const
 	}
 }
 
-LynxString LynxStructure::description()
+LynxString LynxStructure::description() const
 {
 	if(_description == LYNX_NULL)
 		return LynxString();
@@ -792,6 +792,25 @@ char LynxManager::structId(const LynxId & lynxId)
         return LYNX_INVALID_DATAGRAM;
 
     return _data[lynxId.structIndex].structId();
+}
+
+LynxString LynxManager::getStructName(const LynxId & lynxId)
+{
+    if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
+        return LynxString();
+
+    return _data[lynxId.structIndex].description();
+}
+
+LynxString LynxManager::getVariableName(const LynxId & lynxId)
+{
+    if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
+        return LynxString();
+
+    if ((lynxId.variableIndex < 0) || (lynxId.variableIndex >= _data[lynxId.structIndex].count()))
+        return LynxString();
+
+    return _data[lynxId.structIndex].at(lynxId.variableIndex).description();
 }
 
 LynxType & LynxManager::variable(const LynxId & lynxId)

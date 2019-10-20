@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.5 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.6 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.5"
+#define LYNX_VERSION "2.1.2.6"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -316,7 +316,7 @@ public:
 
 	void init(LynxLib::E_LynxDataType dataType, const LynxString * const description);
 
-	LynxString description();
+    LynxString description() const;
 	// void getInfo(LynxVariableInfo & variableInfo) const;
 	// LynxVariableInfo getInfo() const;
 
@@ -440,7 +440,7 @@ public:
 
     char structId() const { return _structId; }
 
-	LynxString description();
+    LynxString description() const;
 
 private:
 	char _structId;
@@ -462,6 +462,9 @@ public:
 
 	void getInfo(LynxDeviceInfo & deviceInfo) const;
 	LynxDeviceInfo getInfo() const;
+
+    LynxString getStructName(const LynxId & lynxId);
+    LynxString getVariableName(const LynxId & lynxId);
 
 	void setDeviceId(char deviceId) { _deviceId = deviceId; }
     char structId(const LynxId & lynxId);
