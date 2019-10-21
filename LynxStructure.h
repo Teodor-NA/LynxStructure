@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.6 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.7 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.6"
+#define LYNX_VERSION "2.1.2.7"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -133,6 +133,7 @@ namespace LynxLib
 		eFloat_RW,
 		eDouble_RW,
 		eString_RW,
+		eBoolean_RW,
 		eLynxType_RW_EndOfList,
 		eLynxType_RO_StartOfList = 0x80,
 		eInt8_RO,
@@ -146,6 +147,7 @@ namespace LynxLib
 		eFloat_RO,
 		eDouble_RO,
 		eString_RO,
+		eBoolean_RO,
 		eLynxType_RO_EndOfList
 	};
 
@@ -210,6 +212,7 @@ public:
 union LynxUnion
 {
 	char bytes[SIZE_64];
+	bool _var_bool;
 	int8_t _var_i8;
 	uint8_t _var_u8;
 	int16_t _var_i16;
@@ -331,6 +334,7 @@ public:
     uint64_t & var_u64() { return _var->_var_u64; }
     double & var_double() { return _var->_var_double; }
 	LynxString & var_string() { return *_str; }
+	bool & var_bool() { return _var->_var_bool; }
 
     const int8_t & var_i8() const { return _var->_var_i8; }
     const uint8_t & var_u8() const { return _var->_var_u8; }
@@ -343,6 +347,7 @@ public:
     const uint64_t & var_u64() const { return _var->_var_u64; }
     const double & var_double() const { return _var->_var_double; }
 	const LynxString & var_string() const { return *_str; }
+	const bool & var_bool() const { return _var->_var_bool; }
 
 	LynxLib::E_LynxDataType dataType() const { return _dataType; }
     bool readOnly() { return ((_dataType & 0x80) != 0); }
@@ -493,14 +498,22 @@ public:
 	LynxDynamicId addStructure(const LynxStructInfo & structInfo, bool enableReadOnly = false);
     LynxId addVariable(const LynxId & parentStruct, LynxLib::E_LynxDataType dataType, const LynxString & description = "");
 
-	LynxLib::E_LynxDataType dataType(const LynxId & lynxId);
-    LynxLib::E_LynxSimplifiedType simplifiedType(const LynxId & lynxId);
+	LynxLib::E_LynxDataType dataType(const LynxId & lynxId) const;
+    LynxLib::E_LynxSimplifiedType simplifiedType(const LynxId & lynxId) const;
+
+	bool outOfBounds(const LynxId & lynxId) const;
 
 	void setValue(double value, const LynxId & lynxId);
-	double getValue(const LynxId & lynxId);
+	double getValue(const LynxId & lynxId) const;
 
 	void setString(const LynxString & str, const LynxId & lynxId);
-	LynxString getString(const LynxId & lynxId);
+	LynxString getString(const LynxId & lynxId) const;
+
+	void setBool(bool value, const LynxId & lynxId);
+	bool getBool(const LynxId & lynxId) const;
+
+	void setBit(int bit, bool value, const LynxId & lynxId);
+	bool getBit(int bit, const LynxId & lynxId) const;
 
 	// Returns number of variables in struct. Returns 0 if out of bounds
 	int structVariableCount(int structIndex);
@@ -509,7 +522,6 @@ public:
 
 private:
 	char _deviceId;
-	LynxType _dummyVariable;
 	LynxString * _description;
 };
 
@@ -541,6 +553,9 @@ public:
 		return *this;
 	}
 
+	bool getBit(int bit) const;
+	void setBit(int bit, bool value);
+
 protected:
     LynxManager * const _lynxManager;
     const LynxId _lynxId;
@@ -549,7 +564,6 @@ protected:
 class LynxVar_i8 : public LynxVar
 {
 public:
-    // LynxVar_i8(const LynxVar & other) : LynxVar(other) {}
     LynxVar_i8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt8_RO : LynxLib::eInt8_RW, description) {}
 		
@@ -565,7 +579,6 @@ public:
 class LynxVar_u8 : public LynxVar
 {
 public:
-    // LynxVar_u8(const LynxVar & other) : LynxVar(other) {}
     LynxVar_u8(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint8_RO : LynxLib::eUint8_RW, description) {}
 
@@ -580,7 +593,6 @@ public:
 class LynxVar_i16 : public LynxVar
 {
 public:
-    // LynxVar_i16(const LynxVar & other) : LynxVar(other) {}
     LynxVar_i16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt16_RO : LynxLib::eInt16_RW, description) {}
 
@@ -595,7 +607,6 @@ public:
 class LynxVar_u16 : public LynxVar
 {
 public:
-    // LynxVar_u16(const LynxVar & other) : LynxVar(other) {}
     LynxVar_u16(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint16_RO : LynxLib::eUint16_RW, description) {}
 
@@ -610,7 +621,6 @@ public:
 class LynxVar_i32 : public LynxVar
 {
 public:
-    // LynxVar_i32(const LynxVar & other) : LynxVar(other) {}
     LynxVar_i32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt32_RO : LynxLib::eInt32_RW, description) {}
 
@@ -625,7 +635,6 @@ public:
 class LynxVar_u32 : public LynxVar
 {
 public:
-    // LynxVar_u32(const LynxVar & other) : LynxVar(other) {}
     LynxVar_u32(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint32_RO : LynxLib::eUint32_RW, description) {}
 
@@ -640,7 +649,6 @@ public:
 class LynxVar_i64 : public LynxVar
 {
 public:
-    // LynxVar_i64(const LynxVar & other) : LynxVar(other) {}
     LynxVar_i64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eInt64_RO : LynxLib::eInt64_RW, description) {}
 
@@ -655,7 +663,6 @@ public:
 class LynxVar_u64 : public LynxVar
 {
 public:
-    // LynxVar_u64(const LynxVar & other) : LynxVar(other) {}
     LynxVar_u64(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eUint64_RO : LynxLib::eUint64_RW, description) {}
 
@@ -670,7 +677,6 @@ public:
 class LynxVar_float : public LynxVar
 {
 public:
-    // LynxVar_float(const LynxVar & other) : LynxVar(other) {}
     LynxVar_float(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eFloat_RO : LynxLib::eFloat_RW, description) {}
 
@@ -685,7 +691,6 @@ public:
 class LynxVar_double : public LynxVar
 {
 public:
-    // LynxVar_double(const LynxVar & other) : LynxVar(other) {}
     LynxVar_double(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
         LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eDouble_RO : LynxLib::eDouble_RW, description) {}
 
@@ -700,7 +705,6 @@ public:
 class LynxVar_string : public LynxVar
 {
 public:
-	// LynxVar_double(const LynxVar & other) : LynxVar(other) {}
 	LynxVar_string(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
 		LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eString_RO : LynxLib::eString_RW, description) {}
 
@@ -709,6 +713,24 @@ public:
 	const LynxString & operator = (const LynxString & other)
 	{
 		return (_lynxManager->variable(_lynxId).var_string() = other);
+	}
+
+	// bit accessors don't make any sense in a string
+	bool getBit(int bit) const = delete;
+	void setBit(int bit, bool value) = delete;
+};
+
+class LynxVar_bool : public LynxVar
+{
+public:
+	LynxVar_bool(LynxManager & lynxManager, const LynxId & parentStruct, const LynxString & description = "", bool readOnly = false) :
+		LynxVar(lynxManager, parentStruct, readOnly ? LynxLib::eBoolean_RO : LynxLib::eBoolean_RW, description) {}
+
+	operator const bool&() const { return _lynxManager->variable(_lynxId).var_bool(); }
+
+	const bool & operator = (const bool & other)
+	{
+		return (_lynxManager->variable(_lynxId).var_bool() = other);
 	}
 };
 

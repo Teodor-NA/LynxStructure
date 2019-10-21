@@ -266,6 +266,8 @@ namespace LynxLib
 			return sizeof(float);
 		case LynxLib::eDouble_RW:
 			return sizeof(double);
+		case LynxLib::eBoolean_RW:
+			return sizeof(bool);
 		default:
 			break;
 		}
@@ -300,6 +302,8 @@ namespace LynxLib
 			return 4;
 		case LynxLib::eDouble_RW:
 			return 8;
+		case LynxLib::eBoolean_RW:
+			return 1;
 		default:
 			break;
 		}
@@ -492,7 +496,8 @@ const LynxString LynxTextList::_lynxDataTypes[LynxLib::eLynxType_RW_EndOfList] =
 	"64 bit unsigned int",
 	"Float",
 	"Double",
-	"String"
+	"String",
+	"Boolean"
 };
 
 LynxString LynxTextList::lynxState(LynxLib::E_LynxState state)
@@ -815,22 +820,11 @@ LynxString LynxManager::getVariableName(const LynxId & lynxId)
 
 LynxType & LynxManager::variable(const LynxId & lynxId)
 {
-	if ((lynxId.variableIndex < 0) || (lynxId.structIndex < 0))
-	{
-		_dummyVariable.var_i64() = 0;
-		return _dummyVariable;
-	}
-
 	return (*this)[lynxId.structIndex][lynxId.variableIndex];
 }
 
 const LynxType & LynxManager::variable(const LynxId & lynxId) const
 {
-	if ((lynxId.variableIndex < 0) || (lynxId.structIndex < 0))
-	{
-		return _dummyVariable;
-	}
-
 	return this->at(lynxId.structIndex).at(lynxId.variableIndex);
 }
 
@@ -1004,7 +998,7 @@ LynxId LynxManager::addVariable(const LynxId & parentStruct, LynxLib::E_LynxData
         return _data[parentStruct.structIndex].addVariable(parentStruct.structIndex, dataType, description);
 }
 
-LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId)
+LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId) const
 {
 	if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
 		return LynxLib::eNotInitialized;
@@ -1014,7 +1008,7 @@ LynxLib::E_LynxDataType LynxManager::dataType(const LynxId & lynxId)
 	return _data[lynxId.structIndex].at(lynxId.variableIndex).dataType();
 }
 
-LynxLib::E_LynxSimplifiedType LynxManager::simplifiedType(const LynxId & lynxId)
+LynxLib::E_LynxSimplifiedType LynxManager::simplifiedType(const LynxId & lynxId) const
 {
     if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
         return LynxLib::eNotInit;
@@ -1035,8 +1029,23 @@ LynxLib::E_LynxSimplifiedType LynxManager::simplifiedType(const LynxId & lynxId)
     return LynxLib::eNotInit;
 }
 
+bool LynxManager::outOfBounds(const LynxId & lynxId) const
+{
+	if ((lynxId.structIndex < 0) || (lynxId.structIndex >= _count))
+		return true;
+	
+	if ((lynxId.variableIndex < 0) || (lynxId.variableIndex >= _data[lynxId.structIndex].count()))
+		return true;
+
+	return false;
+}
+
 void LynxManager::setValue(double value, const LynxId & lynxId)
 {
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return;
+
 	// Remove the access specifier (bit 7)
 	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
 
@@ -1077,8 +1086,12 @@ void LynxManager::setValue(double value, const LynxId & lynxId)
 	}
 }
 
-double LynxManager::getValue(const LynxId & lynxId)
+double LynxManager::getValue(const LynxId & lynxId) const
 {
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return 0.0;
+
 	// Remove the access specifier (bit 7)
 	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
 
@@ -1113,6 +1126,10 @@ double LynxManager::getValue(const LynxId & lynxId)
 
 void LynxManager::setString(const LynxString & str, const LynxId & lynxId)
 {
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return;
+
 	// Remove the access specifier (bit 7)
 	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
 
@@ -1122,15 +1139,88 @@ void LynxManager::setString(const LynxString & str, const LynxId & lynxId)
 	}
 }
 
-LynxString LynxManager::getString(const LynxId & lynxId)
-{	
+LynxString LynxManager::getString(const LynxId & lynxId) const
+{
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return LynxString();
+
 	// Remove the access specifier (bit 7)
 	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
 
-	if ((dataType != LynxLib::eString_RW) && (dataType != LynxLib::eString_RW))
+	if (dataType != LynxLib::eString_RW)
 		return LynxString();
 
 	return this->variable(lynxId).var_string();
+}
+
+void LynxManager::setBool(bool value, const LynxId & lynxId)
+{
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return;
+
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if (dataType != LynxLib::eBoolean_RW)
+		return;
+
+	this->variable(lynxId).var_bool() = value;
+}
+
+bool LynxManager::getBool(const LynxId & lynxId) const
+{
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return false;
+
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if (dataType != LynxLib::eBoolean_RW)
+		return false;
+
+	return this->variable(lynxId).var_bool();
+}
+
+void LynxManager::setBit(int bit, bool value, const LynxId & lynxId)
+{
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return;
+
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if (dataType == LynxLib::eString_RW)
+		return;
+
+	int64_t & temp = this->variable(lynxId).var_i64();
+
+	if (value)
+	{
+		temp |= (int64_t(1) << bit);
+	}
+	else
+	{
+		temp &= ~(int64_t(1) << bit);
+	}
+}
+
+bool LynxManager::getBit(int bit, const LynxId & lynxId) const
+{
+	// Check for "Out of bounds"
+	if (this->outOfBounds(lynxId))
+		return false;
+
+	// Remove the access specifier (bit 7)
+	LynxLib::E_LynxDataType dataType = LynxLib::E_LynxDataType(this->dataType(lynxId) & 0x7f);
+
+	if (dataType == LynxLib::eString_RW)
+		return false;
+
+	return (this->variable(lynxId).var_i64() & (int64_t(1) << bit));
 }
 
 int LynxManager::structVariableCount(int structIndex)
@@ -1152,3 +1242,21 @@ int LynxManager::findId(char structId)
 	return -1;
 }
 
+bool LynxVar::getBit(int bit) const
+{
+	return (_lynxManager->variable(_lynxId).var_i64() & (int64_t(1) << bit));
+}
+
+void LynxVar::setBit(int bit, bool value)
+{
+	int64_t & temp = _lynxManager->variable(_lynxId).var_i64();
+
+	if (value)
+	{
+		temp |= (int64_t(1) << bit);
+	}
+	else
+	{
+		temp &= ~(int64_t(1) << bit);
+	}
+}
