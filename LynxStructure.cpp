@@ -1081,6 +1081,9 @@ void LynxManager::setValue(double value, const LynxId & lynxId)
 	case LynxLib::eDouble_RW:
 		this->variable(lynxId).var_double() = value;
 		break;
+	case LynxLib::eBoolean_RW:
+		this->variable(lynxId).var_bool() = (value != 0.0);
+		break;
 	default:
 		break;
 	}
@@ -1117,6 +1120,8 @@ double LynxManager::getValue(const LynxId & lynxId) const
 		return double(this->variable(lynxId).var_float());
 	case LynxLib::eDouble_RW:
 		return this->variable(lynxId).var_double();
+	case LynxLib::eBoolean_RW:
+		return double(this->variable(lynxId).var_bool());
 	default:
 		break;
 	}
