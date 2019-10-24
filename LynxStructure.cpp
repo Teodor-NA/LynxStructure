@@ -65,17 +65,17 @@ void LynxType::init(LynxLib::E_LynxDataType dataType, const LynxString * const d
 
 	if (tmpType > LynxLib::eNotInitialized)
 	{
-		if (tmpType < LynxLib::eString_RW)
-		{
-			if (_var != LYNX_NULL)
-				delete _var;
-			_var = new LynxUnion();
-		}
-		else if (tmpType == LynxLib::eString_RW)
+		if (tmpType == LynxLib::eString_RW)
 		{
 			if (_str != LYNX_NULL)
 				delete _str;
 			_str = new LynxString("");
+		}
+		else if (tmpType < LynxLib::eLynxType_RW_EndOfList)
+		{
+			if (_var != LYNX_NULL)
+				delete _var;
+			_var = new LynxUnion();
 		}
 	}
 
