@@ -1018,13 +1018,11 @@ LynxLib::E_LynxSimplifiedType LynxManager::simplifiedType(const LynxId & lynxId)
     LynxLib::E_LynxDataType tempType = LynxLib::E_LynxDataType(_data[lynxId.structIndex].at(lynxId.variableIndex).dataType() & 0x7f);
 
     if (tempType == LynxLib::eString_RW)
-    {
         return LynxLib::eString;
-    }
+    else if (tempType == LynxLib::eBoolean_RW)
+        return LynxLib::eBool;
     else if ((tempType > LynxLib::eNotInitialized) && (tempType < LynxLib::eLynxType_RW_EndOfList))
-    {
         return LynxLib::eNumber;
-    }
 
     return LynxLib::eNotInit;
 }
@@ -1121,7 +1119,7 @@ double LynxManager::getValue(const LynxId & lynxId) const
 	case LynxLib::eDouble_RW:
 		return this->variable(lynxId).var_double();
 	case LynxLib::eBoolean_RW:
-		return double(this->variable(lynxId).var_bool());
+        return (this->variable(lynxId).var_bool() ? 1.0 : 0.0);
 	default:
 		break;
 	}

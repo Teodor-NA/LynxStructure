@@ -155,7 +155,8 @@ namespace LynxLib
     {
         eNotInit = 0,
         eNumber,
-        eString
+        eString,
+        eBool
     };
 	
 	enum E_LynxAccessMode
