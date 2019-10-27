@@ -332,6 +332,11 @@ public:
 
 	void reverse(int indexFrom = -1, int indexTo = -1);
 
+    // Finds the index of the first character in the string that matches the input. Returns -1 if no match is found.
+    int indexOf(char character, int offset = 0) const;
+    // Finds the indexes of all the characters in the string that matches the input. Returns an empty list if no match is found.
+    LynxList<int> indexesOf(char character) const;
+
 	static LynxString number(int64_t num, int base = 10);
 	static LynxString number(uint64_t num, int base = 10);
 	static LynxString number(int32_t num, int base = 10);

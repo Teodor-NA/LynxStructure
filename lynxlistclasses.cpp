@@ -373,6 +373,36 @@ void LynxString::reverse(int indexFrom, int indexTo)
 
 }
 
+int LynxString::indexOf(char character, int offset) const
+{
+    char * pChar = reinterpret_cast<char*>(memchr((_string + offset), character, size_t(_count - 1)));
+
+    if (pChar == LYNX_NULL)
+        return -1;
+    else
+        return int(pChar - _string);
+}
+
+LynxList<int> LynxString::indexesOf(char character) const
+{
+    LynxList<int> temp;
+
+    int tmpIndex = -1;
+
+    while(true)
+    {
+        tmpIndex++;
+        tmpIndex = this->indexOf(character, tmpIndex);
+        if (tmpIndex >= 0)
+            temp.append(tmpIndex);
+        else
+           break;
+
+    }
+
+    return temp;
+}
+
 LynxString LynxString::number(int64_t num, int base)
 {
 	LynxString temp(64);

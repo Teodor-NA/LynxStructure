@@ -94,6 +94,9 @@ const LynxInfo & LynxIoDevice::update()
 			case LynxLib::eStopPeriodic:
 				_state = LynxLib::eGetPeriodicStop;
 				break;
+            case LynxLib::eChangeDeviceId:
+                _state = LynxLib::eGetDeviceId;
+                break;
 			default:
 				_updateInfo.state = LynxLib::eInvalidInternalId;
 				_state = LynxLib::eFindHeader;
@@ -270,6 +273,44 @@ const LynxInfo & LynxIoDevice::update()
 			return _updateInfo;
 		}
 	}
+
+    if (_state == LynxLib::eGetDeviceId)
+    {
+        // ---------------------------- Frame --------------------------------
+        // -------------------------------------------------------------------
+        // |    Description    |    Size    |     Index    |    Contents     |
+        // -------------------------------------------------------------------
+        // |   Static header   |     1      |       0      |      'A'        |
+        // |    Datagram Id    |     1      |       1      |      255        |
+        // | Internal data id  |     1      |       2      |       6         |
+        // |     Device Id     |     1      |       3      |    1 -> 255     |
+        // |     Checksum      |     1      |       4      |    0 -> 255     |
+        // -------------------------------------------------------------------
+
+        if (this->bytesAvailable() >= 2)
+        {
+            this->read(2);
+            if (!LynxLib::checkChecksum(_readBuffer))
+            {
+                _updateInfo.state = LynxLib::eWrongChecksum;
+                _state = LynxLib::eFindHeader;
+                return _updateInfo;
+            }
+
+            if (_readBuffer.at(3) == 0)
+            {
+                _updateInfo.state = LynxLib::eInvalidDeviceId;
+            }
+            else
+            {
+                _lynx->setDeviceId(_readBuffer.at(3));
+                _updateInfo.state = LynxLib::eDeviceIdUpdated;
+            }
+
+            _state = LynxLib::eFindHeader;
+            return _updateInfo;
+        }
+    }
 
 	if (_state == LynxLib::eGetDeviceInfo)
 	{
@@ -678,6 +719,32 @@ void LynxIoDevice::remotePeriodicStop(const LynxId & lynxId)
 	LynxLib::addChecksum(_writeBuffer);
 
 	this->write();
+}
+
+void LynxIoDevice::changeRemoteDeviceId(char deviceId)
+{
+    if (deviceId == 0) // invalid deviceId
+        return;
+
+    // ---------------------------- Frame --------------------------------
+    // -------------------------------------------------------------------
+    // |    Description    |    Size    |     Index    |    Contents     |
+    // -------------------------------------------------------------------
+    // |   Static header   |     1      |       0      |      'A'        |
+    // |    Datagram Id    |     1      |       1      |      255        |
+    // | Internal data id  |     1      |       2      |       6         |
+    // |     Device Id     |     1      |       3      |    1 -> 255     |
+    // |     Checksum      |     1      |       5      |    0 -> 255     |
+    // -------------------------------------------------------------------
+
+    _writeBuffer.reserve(6);
+    _writeBuffer.append(LYNX_STATIC_HEADER);
+    _writeBuffer.append(LYNX_INTERNALS_HEADER);
+    _writeBuffer.append(LynxLib::E_LynxInternals::eChangeDeviceId);
+    _writeBuffer.append(deviceId);
+    LynxLib::addChecksum(_writeBuffer);
+
+    this->write();
 }
 
 LynxDeviceInfo LynxIoDevice::lynxDeviceInfo()

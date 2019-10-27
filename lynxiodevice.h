@@ -15,6 +15,7 @@ namespace LynxLib
 		eGetPeriodicStop,
 		eGetPullRequest,
 		eGetScan,
+        eGetDeviceId,
 		eGetDeviceInfo,
 		eGetDeviceData,
 		eGetData
@@ -70,6 +71,8 @@ public:
 
 	void remotePeriodicStart(const LynxId & lynxId, uint32_t interval);
 	void remotePeriodicStop(const LynxId & lynxId);
+
+    void changeRemoteDeviceId(char deviceId);
 
 	LynxDeviceInfo lynxDeviceInfo();
 

@@ -1,10 +1,10 @@
 #ifndef LYNX_STRUCTURE_H
 #define LYNX_STRUCTURE_H
 //-----------------------------------------------------------------------------------------------------------
-//-------------------------------------- LynxStructure V2.1.2.8 ---------------------------------------------
+//-------------------------------------- LynxStructure V2.1.2.9 ---------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-#define LYNX_VERSION "2.1.2.8"
+#define LYNX_VERSION "2.1.2.9"
 
 #ifdef TI
 typedef uint16_t uint8_t
@@ -49,6 +49,8 @@ struct LynxDeviceInfo;
 struct LynxId;
 struct LynxInfo;
 
+class LynxVersion;
+
 class LynxType;
 class LynxVar;
 
@@ -82,6 +84,7 @@ namespace LynxLib
 		ePullDatagram,
 		eStartPeriodic,
 		eStopPeriodic,
+        eChangeDeviceId,
 		eLynxInternals_EndOfList
 	};
 
@@ -97,6 +100,7 @@ namespace LynxLib
 		ePullRequestReceived,
 		ePeriodicTransmitStart,
 		ePeriodicTransmitStop,
+        eDeviceIdUpdated,
 		// Anything above eError is an error
 		eErrors,
 		eOutOfSync,
@@ -116,6 +120,7 @@ namespace LynxLib
 		eInvalidStructId,
 		eInvalidInternalId,
 		eDataTypeNotFound,
+        eInvalidDeviceId,
 		eLynxState_EndOfList
 	};
 
@@ -278,14 +283,6 @@ struct LynxId
 	int variableIndex;
 };
 
-//struct LynxVariableId : LynxId
-//{
-//	LynxVariableId(int _structIndex = -1, int _variableIndex = -1, LynxLib::E_LynxDataType _dataType = LynxLib::eInvalidType) :
-//		LynxId(_structIndex, _variableIndex), dataType(_dataType) {}
-//
-//	LynxLib::E_LynxDataType dataType;
-//};
-
 struct LynxDynamicId
 {
     LynxDynamicId() : structId(0) {}
@@ -304,6 +301,22 @@ struct LynxInfo
 	LynxId lynxId;
 	int dataLength;
 	LynxLib::E_LynxState state;
+};
+
+class LynxVersion
+{
+public:
+    LynxVersion();
+	LynxVersion(char release, char major, char minor, char build);
+	LynxVersion(const char * version) : LynxVersion(LynxString(version)) {}
+    LynxVersion(const LynxString & version);
+    LynxVersion(uint32_t version);
+
+    operator LynxString() const;
+    operator uint32_t() const;
+
+private:
+    char _version[4];
 };
 
 //-----------------------------------------------------------------------------------------------------------
@@ -466,14 +479,17 @@ public:
 
 	using LynxList::count;
 
+	const LynxVersion & getVersion() const { return _version; }
+	
 	void getInfo(LynxDeviceInfo & deviceInfo) const;
 	LynxDeviceInfo getInfo() const;
 
     LynxString getStructName(const LynxId & lynxId);
     LynxString getVariableName(const LynxId & lynxId);
 
-	void setDeviceId(char deviceId) { _deviceId = deviceId; }
-    char structId(const LynxId & lynxId);
+    void setDeviceId(char deviceId) { if (deviceId == 0) return; _deviceId = deviceId; }
+    char deviceId() const { return  _deviceId; }
+    char structId(const LynxId & lynxId) const;
 
 	LynxType & variable(const LynxId & lynxId);
 	const LynxType & variable(const LynxId & lynxId) const;
@@ -524,6 +540,7 @@ public:
 private:
 	char _deviceId;
 	LynxString * _description;
+	const LynxVersion _version;
 };
 
 //-----------------------------------------------------------------------------------------------------------
