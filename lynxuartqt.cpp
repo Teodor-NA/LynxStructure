@@ -1,8 +1,39 @@
 #include "lynxuartqt.h"
 
-LynxUartQt::LynxUartQt(LynxManager & lynx) : LynxIoDevice(lynx)
+LynxUartQt::LynxUartQt(LynxManager * const lynx) : LynxIoDevice(lynx)
 {
     _timer.start();
+}
+
+LynxUartQt::LynxUartQt(const LynxUartQt & other) : LynxIoDevice(other._lynx)
+{
+    _port.setPort(QSerialPortInfo(other._port));
+
+    _open = _port.isOpen();
+
+    _timer.start();
+}
+
+const LynxUartQt & LynxUartQt::operator =(const LynxUartQt & other)
+{
+    if (&other == this)
+        return *this;
+
+    this->_lynx = other._lynx;
+
+    _port.setPort(QSerialPortInfo(other._port));
+
+    return *this;
+}
+
+bool LynxUartQt::open()
+{
+    if(_open)
+        this->close();
+
+    _open = _port.open(QSerialPort::ReadWrite);
+
+    return _open;
 }
 
 bool LynxUartQt::open(int port, unsigned long baudRate)

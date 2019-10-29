@@ -1,9 +1,9 @@
 #include "lynxiodevice.h"
 
-LynxIoDevice::LynxIoDevice(LynxManager & lynx) :
+LynxIoDevice::LynxIoDevice(LynxManager * const lynx) :
     _state(LynxLib::eFindHeader),
     _open(false),
-    _lynx(&lynx)
+    _lynx(lynx)
 {
 }
 

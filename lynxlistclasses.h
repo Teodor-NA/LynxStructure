@@ -27,85 +27,24 @@ template <class T>
 class LynxList
 {
 public:
-	LynxList()
-	{
-		_data = LYNX_NULL;
-		_count = 0;
-		_reservedCount = 0;
-	}
+	LynxList();
+	LynxList(int size);
+	LynxList(const LynxList & other);
 
-	LynxList(int size) : LynxList()
-	{
-		this->reserve(size);
-	}
+	~LynxList();
 
-	LynxList(const LynxList & other) : LynxList()
-	{
-		*this = other;
-	}
+	void deleteData();
 
-	~LynxList()
-	{
-		this->deleteData();
-	}
+	LynxList & operator = (const LynxList & other);
 
-	void deleteData()
-	{
-		if (_data != LYNX_NULL)
-		{
-			delete[] _data;
-			_data = LYNX_NULL;
-		}
-
-		_count = 0;
-		_reservedCount = 0;
-	}
-
-	LynxList & operator = (const LynxList & other)
-	{
-		if (&other == this)
-			return *this;
-
-		_count = 0;
-
-		if (other._count < 1) // If the other list is empty, then copying it is pointless
-			return *this;
-
-		this->reserve(other._count);
-
-		// memcpy(_data, other._data, other._count * sizeof(T));
-
-		for (int i = 0; i < other._count; i++)
-		{
-			_data[i] = other._data[i];
-		}
-
-		_count = other._count;
-		return *this;
-	}
-
-	T & operator [] (int index)
-	{
-		return _data[index];
-	}
+	T & operator [] (int index);
 
 	void clear() { _count = 0; }
 
 	int count() const { return _count; }
 
-	void reserve(int size)
-	{
-		_count = 0;
-
-		if (size <= _reservedCount)
-			return;
-
-		this->deleteData();
-
-		_reservedCount = size;
-		_data = new T[_reservedCount];
-	}
-
+	void reserve(int size);
+ 
 	void resize(int size)
 	{
 		if (size <= _reservedCount)
@@ -245,6 +184,89 @@ protected:
 	int _count;
 	int _reservedCount;
 };
+
+template<class T>
+inline LynxList<T>::LynxList()
+{
+	_data = LYNX_NULL;
+	_count = 0;
+	_reservedCount = 0;
+}
+
+template<class T>
+inline LynxList<T>::LynxList(int size) : LynxList()
+{
+	this->reserve(size);
+}
+
+template<class T>
+inline LynxList<T>::LynxList(const LynxList & other) : LynxList()
+{
+	*this = other;
+}
+
+template<class T>
+inline LynxList<T>::~LynxList()
+{
+	this->deleteData();
+}
+
+template<class T>
+inline void LynxList<T>::deleteData()
+{
+	if (_data != LYNX_NULL)
+	{
+		delete[] _data;
+		_data = LYNX_NULL;
+	}
+
+	_count = 0;
+	_reservedCount = 0;
+}
+
+template<class T>
+inline LynxList<T> & LynxList<T>::operator=(const LynxList & other)
+{
+	if (&other == this)
+		return *this;
+
+	_count = 0;
+
+	if (other._count < 1) // If the other list is empty, then copying it is pointless
+		return *this;
+
+	this->reserve(other._count);
+
+	// memcpy(_data, other._data, other._count * sizeof(T));
+
+	for (int i = 0; i < other._count; i++)
+	{
+		_data[i] = other._data[i];
+	}
+
+	_count = other._count;
+	return *this;
+}
+
+template<class T>
+inline T & LynxList<T>::operator[](int index)
+{
+	return _data[index];
+}
+
+template<class T>
+inline void LynxList<T>::reserve(int size)
+{
+	_count = 0;
+
+	if (size <= _reservedCount)
+		return;
+
+	this->deleteData();
+
+	_reservedCount = size;
+	_data = new T[_reservedCount];
+}
 
 //-----------------------------------------------------------------------------------------------------------
 //----------------------------------------- LynxByteArray ---------------------------------------------------
