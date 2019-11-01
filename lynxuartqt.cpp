@@ -1,15 +1,20 @@
 #include "lynxuartqt.h"
 
-LynxUartQt::LynxUartQt(LynxManager * const lynx) : LynxIoDevice(lynx)
+LynxUartQt::LynxUartQt(LynxManager * const lynx, int portIndex) : LynxIoDevice(lynx)
 {
+    _port.setPortIndex(portIndex);
     _timer.start();
 }
 
-LynxUartQt::LynxUartQt(const LynxUartQt & other) : LynxIoDevice(other._lynx)
+LynxUartQt::LynxUartQt(const LynxUartQt & other, int portIndex) : LynxIoDevice(other._lynx)
 {
-    _port.setPort(QSerialPortInfo(other._port));
-
-    _open = _port.isOpen();
+    _port.setPortIndex(portIndex);
+    _port.port().setPortName(other._port.port().portName());
+    _port.port().setBaudRate(other._port.port().baudRate());
+//    qDebug() << "Port rebuilt with:";
+//    qDebug() << "Name:" << _port.port().portName();
+//    qDebug() << "Baud Rate:" << _port.port().baudRate() << "\n";
+    _open = _port.port().isOpen();
 
     _timer.start();
 }
@@ -20,8 +25,12 @@ const LynxUartQt & LynxUartQt::operator =(const LynxUartQt & other)
         return *this;
 
     this->_lynx = other._lynx;
-
-    _port.setPort(QSerialPortInfo(other._port));
+    _port.port().setPortName(other._port.port().portName());
+    _port.port().setBaudRate(other._port.port().baudRate());
+//    qDebug() << "Port rebuilt with:";
+//    qDebug() << "Name:" << _port.port().portName();
+//    qDebug() << "Baud Rate:" << _port.port().baudRate() << "\n";
+    _open = _port.port().isOpen();
 
     return *this;
 }
@@ -31,7 +40,7 @@ bool LynxUartQt::open()
     if(_open)
         this->close();
 
-    _open = _port.open(QSerialPort::ReadWrite);
+    _open = _port.port().open(QSerialPort::ReadWrite);
 
     return _open;
 }
@@ -43,10 +52,10 @@ bool LynxUartQt::open(int port, unsigned long baudRate)
 
     QString portName = QString::asprintf("COM%i", port);
 
-    _port.setPortName(portName);
-    _port.setBaudRate(int(baudRate));
+    _port.port().setPortName(portName);
+    _port.port().setBaudRate(int(baudRate));
 
-    _open = _port.open(QSerialPort::ReadWrite);
+    _open = _port.port().open(QSerialPort::ReadWrite);
 
     return _open;
 }
@@ -56,17 +65,17 @@ bool LynxUartQt::open(const QSerialPortInfo & port, unsigned long baudRate)
     if(_open)
         this->close();
 
-    _port.setPort(port);
-    _port.setBaudRate(int(baudRate));
+    _port.port().setPort(port);
+    _port.port().setBaudRate(int(baudRate));
 
-    _open = _port.open(QSerialPort::ReadWrite);
+    _open = _port.port().open(QSerialPort::ReadWrite);
 
     return _open;
 }
 
 void LynxUartQt::close()
 {
-    _port.close();
+    _port.port().close();
     _open = false;
 }
 
@@ -76,7 +85,7 @@ int LynxUartQt::read(int count)
         return 0;
 
 
-    QByteArray temp = _port.read(count);
+    QByteArray temp = _port.port().read(count);
 
     for (int i = 0; i < temp.count(); i++)
     {
@@ -91,7 +100,7 @@ void LynxUartQt::write()
     if(!_open)
         return;
 
-    _port.write(_writeBuffer.data(), _writeBuffer.count());
+    _port.port().write(_writeBuffer.data(), _writeBuffer.count());
 }
 
 int LynxUartQt::bytesAvailable() const
@@ -99,7 +108,7 @@ int LynxUartQt::bytesAvailable() const
     if(!_open)
         return 0;
 
-    return static_cast<int>(_port.bytesAvailable());
+    return static_cast<int>(_port.port().bytesAvailable());
 }
 
 uint32_t LynxUartQt::getMillis() const

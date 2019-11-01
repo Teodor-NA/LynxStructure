@@ -56,8 +56,8 @@ public:
 
 	int sendDeviceInfo();
 
-    virtual bool open(int port, unsigned long baudRate) = 0;
-    virtual void close() = 0;
+//    virtual bool open(int port, unsigned long baudRate) = 0;
+//    virtual void close() = 0;
 
 	// Scan the bus for devices
 	void scan();

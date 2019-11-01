@@ -87,7 +87,7 @@ LynxVersion::operator LynxString() const
 
 	for (int i = 0; i < 4; i++)
 	{
-		temp.append(LynxString::number((int(_version[i]) & 0xff)));
+		temp.append(LynxString::number((int32_t(_version[i]) & 0xff)));
 		if (i != 3)
 			temp.append('.');
 	}
