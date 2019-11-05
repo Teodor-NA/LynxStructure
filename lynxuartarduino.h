@@ -8,7 +8,7 @@ class LynxUartArduino :
 	public LynxIoDevice
 {
 public:
-	LynxUartArduino(LynxManager & lynx) : LynxIoDevice(lynx) {};
+	LynxUartArduino(LynxManager & lynx) : LynxIoDevice(&lynx) {};
 	~LynxUartArduino() {};
 
 	bool open(int port, unsigned long baudRate);

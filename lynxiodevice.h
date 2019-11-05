@@ -15,6 +15,7 @@ namespace LynxLib
 		eGetPeriodicStop,
 		eGetPullRequest,
 		eGetScan,
+        eGetDeviceId,
 		eGetDeviceInfo,
 		eGetDeviceData,
 		eGetData
@@ -38,8 +39,10 @@ struct LynxPeriodicTransmit : public LynxId
 class LynxIoDevice
 {
 public:
-	LynxIoDevice(LynxManager & lynx);
+    LynxIoDevice(LynxManager * const lynx = nullptr);
     virtual ~LynxIoDevice();
+
+    void init(LynxManager * const lynx = nullptr) { _lynx = lynx; }
 
 	/// Run this to receive data on the uart port.
 	/// Should run as often as possible, or on interrupt when new data is waiting at the port.
@@ -49,12 +52,12 @@ public:
 	LynxLib::E_LynxState periodicUpdate();
 
     LynxLib::E_LynxState send(const LynxId & lynxId);
-    bool opened() { return _open; }
+    bool isOpen() const { return _open; }
 
 	int sendDeviceInfo();
 
-    virtual bool open(int port, unsigned long baudRate) = 0;
-    virtual void close() = 0;
+//    virtual bool open(int port, unsigned long baudRate) = 0;
+//    virtual void close() = 0;
 
 	// Scan the bus for devices
 	void scan();
@@ -71,6 +74,8 @@ public:
 	void remotePeriodicStart(const LynxId & lynxId, uint32_t interval);
 	void remotePeriodicStop(const LynxId & lynxId);
 
+    void changeRemoteDeviceId(char deviceId);
+
 	LynxDeviceInfo lynxDeviceInfo();
 
 protected:
@@ -79,7 +84,7 @@ protected:
 	int _transferLength;
     bool _open;
 
-	LynxManager * const _lynx;
+    LynxManager * _lynx;
 
 	/// Must read count number of bytes from the port to the read-buffer
     virtual int read(int count = 1) = 0;
