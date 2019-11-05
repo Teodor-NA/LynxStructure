@@ -39,10 +39,10 @@ struct LynxPeriodicTransmit : public LynxId
 class LynxIoDevice
 {
 public:
-    LynxIoDevice(LynxManager * const lynx = nullptr);
+    LynxIoDevice(LynxManager * const lynx = LYNX_NULL);
     virtual ~LynxIoDevice();
 
-    void init(LynxManager * const lynx = nullptr) { _lynx = lynx; }
+    void init(LynxManager * const lynx = LYNX_NULL) { _lynx = lynx; }
 
 	/// Run this to receive data on the uart port.
 	/// Should run as often as possible, or on interrupt when new data is waiting at the port.

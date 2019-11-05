@@ -611,7 +611,7 @@ void LynxIoDevice::scan()
 	_writeBuffer.reserve(4);
 	_writeBuffer.append(LYNX_STATIC_HEADER);
 	_writeBuffer.append(LYNX_INTERNALS_HEADER);
-	_writeBuffer.append(LynxLib::E_LynxInternals::eScan);
+	_writeBuffer.append(LynxLib::eScan);
 	LynxLib::addChecksum(_writeBuffer);
 
 	this->write();
@@ -634,7 +634,7 @@ void LynxIoDevice::pullDatagram(const LynxId & lynxId)
 	_writeBuffer.reserve(6);
 	_writeBuffer.append(LYNX_STATIC_HEADER);
 	_writeBuffer.append(LYNX_INTERNALS_HEADER);
-	_writeBuffer.append(LynxLib::E_LynxInternals::ePullDatagram);
+	_writeBuffer.append(LynxLib::ePullDatagram);
 	_writeBuffer.append(_lynx->structId(lynxId));
 	_writeBuffer.append(char(lynxId.variableIndex + 1));
 	LynxLib::addChecksum(_writeBuffer);
@@ -687,7 +687,7 @@ void LynxIoDevice::remotePeriodicStart(const LynxId & lynxId, uint32_t interval)
 	_writeBuffer.reserve(10);
 	_writeBuffer.append(LYNX_STATIC_HEADER);
 	_writeBuffer.append(LYNX_INTERNALS_HEADER);
-	_writeBuffer.append(LynxLib::E_LynxInternals::eStartPeriodic);
+	_writeBuffer.append(LynxLib::eStartPeriodic);
 	_writeBuffer.append(_lynx->structId(lynxId));
 	_writeBuffer.append(char(lynxId.variableIndex + 1));
 	LynxLib::expandInt(int32_t(interval), _writeBuffer);
@@ -713,7 +713,7 @@ void LynxIoDevice::remotePeriodicStop(const LynxId & lynxId)
 	_writeBuffer.reserve(6);
 	_writeBuffer.append(LYNX_STATIC_HEADER);
 	_writeBuffer.append(LYNX_INTERNALS_HEADER);
-	_writeBuffer.append(LynxLib::E_LynxInternals::eStopPeriodic);
+	_writeBuffer.append(LynxLib::eStopPeriodic);
 	_writeBuffer.append(_lynx->structId(lynxId));
 	_writeBuffer.append(char(lynxId.variableIndex + 1));
 	LynxLib::addChecksum(_writeBuffer);
@@ -740,7 +740,7 @@ void LynxIoDevice::changeRemoteDeviceId(char deviceId)
     _writeBuffer.reserve(6);
     _writeBuffer.append(LYNX_STATIC_HEADER);
     _writeBuffer.append(LYNX_INTERNALS_HEADER);
-    _writeBuffer.append(LynxLib::E_LynxInternals::eChangeDeviceId);
+    _writeBuffer.append(LynxLib::eChangeDeviceId);
     _writeBuffer.append(deviceId);
     LynxLib::addChecksum(_writeBuffer);
 

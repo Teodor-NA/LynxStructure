@@ -216,7 +216,7 @@ LynxString operator+(const char * const otherCharArray, const LynxString & other
 	return temp;
 }
 
-LynxString::operator const char*const() const
+LynxString::operator const char*() const
 {
 	if (_count < 1)
 		return "";
