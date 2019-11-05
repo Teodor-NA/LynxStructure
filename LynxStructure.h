@@ -7,8 +7,9 @@
 #define LYNX_VERSION "2.1.2.8"
 
 #ifdef TI
-typedef uint16_t uint8_t
-typedef int16_t int8_t
+#include "DSP28x_Project.h"
+//typedef uint16_t uint8_t;
+//typedef int16_t int8_t;
 #else
 #include <stdint.h>
 #endif // TI

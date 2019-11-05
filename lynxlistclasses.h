@@ -2,8 +2,9 @@
 #define LYNXLISTCLASSES_H
 
 #ifdef TI
-typedef uint16_t uint8_t
-typedef int16_t int8_t
+#include "DSP28x_Project.h"
+//typedef uint16_t uint8_t;
+typedef int16_t int8_t;
 #else
 #include <stdint.h>
 #endif // TI
@@ -314,7 +315,7 @@ public:
 
 	friend LynxString operator +(const char * const otherCharArray, const LynxString & otherString);
 
-	operator const char * const() const;
+	operator const char * () const;
 
 	bool operator == (const LynxString & other);
 	bool operator != (const LynxString & other);
