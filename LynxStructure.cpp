@@ -1,6 +1,111 @@
 // #include "D:\Visual Studio Projects\Lynx Test V2\Lynx Test V2\pch.h"
-#include "lynxstructure.h"
+#include "LynxStructure.h"
 
+//-----------------------------------------------------------------------------------------------------------
+//-------------------------------------------- Structures ---------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------
+
+LynxVersion::LynxVersion()
+{
+    for (int i = 0; i < 4; i++)
+    {
+        _version[i] = 0;
+    }
+}
+
+LynxVersion::LynxVersion(char release, char major, char minor, char build)
+{
+	_version[0] = release;
+	_version[1] = major;
+	_version[2] = minor;
+	_version[3] = build;
+}
+
+
+LynxVersion::LynxVersion(const LynxString & version) : LynxVersion()
+{
+	LynxList<int> separators = version.indexesOf('.');
+
+	if (separators.count() != 3)
+		return;
+
+	// 1.1.1.1
+	int startIndex = 0;
+	int endIndex;
+
+	char tmpChar;
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (i == 3)
+			endIndex = (version.count() - 1);
+		else
+			endIndex = (separators.at(i) - 1);
+
+		if ((endIndex - startIndex) > 3)
+			return;
+
+		for (int j = 0; j <= (endIndex - startIndex); j++)
+		{
+			tmpChar = version.at(endIndex - j);
+
+			if ((tmpChar < '0') || (tmpChar > '9'))
+				return;
+
+			switch (j)
+			{
+			case 0:
+				_version[i] += (tmpChar - '0');
+				break;
+			case 1:
+				_version[i] += (tmpChar - '0') * 10;
+				break;
+			case 2:
+				_version[i] += (tmpChar - '0') * 100;
+				break;
+			default:
+				break;
+			}			
+		}
+
+		startIndex = endIndex + 2;
+	}
+}
+
+LynxVersion::LynxVersion(uint32_t version)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		_version[i] = static_cast<char>(version >> ((3 - i) * 8));
+	}
+}
+
+LynxVersion::operator LynxString() const
+{
+	// 255.255.255.255 max 15 chars
+	LynxString temp(15);
+
+	for (int i = 0; i < 4; i++)
+	{
+		temp.append(LynxString::number((int32_t(_version[i]) & 0xff)));
+		if (i != 3)
+			temp.append('.');
+	}
+
+	return temp;
+}
+
+LynxVersion::operator uint32_t() const
+{
+	uint32_t temp = 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		temp |= ((static_cast<uint32_t>(_version[i]) & 0xff) << ((3 - i) * 8));
+	}
+
+	return temp;
+}
 
 //-----------------------------------------------------------------------------------------------------------
 //-------------------------------------------- LynxType -----------------------------------------------------
@@ -463,6 +568,7 @@ const LynxString LynxTextList::_lynxStates[LynxLib::eLynxState_EndOfList] =
 	"Pull request received",
 	"Periodic transmit started",
 	"Periodic transmit stopped",
+    "Device id updated",
 	"Error separator",
 	"Out of sync",
 	"Struct id not found",
@@ -480,7 +586,8 @@ const LynxString LynxTextList::_lynxStates[LynxLib::eLynxState_EndOfList] =
 	"Unknown error",
 	"Invalid struct id",
 	"Invalid internal id",
-	"Data type not recognized"
+    "Data type not recognized",
+    "Invalid device id"
 };
 
 const LynxString LynxTextList::_lynxDataTypes[LynxLib::eLynxType_RW_EndOfList] =
@@ -746,7 +853,7 @@ LynxString LynxStructure::description() const
 //----------------------------------------- LynxManager -----------------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
-LynxManager::LynxManager(char deviceId, const LynxString & description, int size) : LynxList(size) 
+LynxManager::LynxManager(char deviceId, const LynxString & description, int size) : LynxList(size), _version(LYNX_VERSION)
 { 
 	_deviceId = deviceId;
 		
@@ -769,7 +876,7 @@ void LynxManager::getInfo(LynxDeviceInfo & deviceInfo) const
 {
 	deviceInfo.deviceId = _deviceId;
 	deviceInfo.structCount = _count;
-	deviceInfo.lynxVersion = LYNX_VERSION;
+	deviceInfo.lynxVersion = _version;
 		
 	if (_description == LYNX_NULL)
 		deviceInfo.description = "Not defined";
@@ -791,7 +898,7 @@ LynxDeviceInfo LynxManager::getInfo() const
 	return temp;
 }
 
-char LynxManager::structId(const LynxId & lynxId)
+char LynxManager::structId(const LynxId & lynxId) const
 {
     if((lynxId.structIndex < 0) || (lynxId.structIndex > _count))
         return LYNX_INVALID_DATAGRAM;
