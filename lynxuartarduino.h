@@ -13,7 +13,7 @@ public:
 
 	bool open(int port, unsigned long baudRate);
 	void close();
-
+	long micros;
 private:
 	int read(int count = 1);
 	void write();
