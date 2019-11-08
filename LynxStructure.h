@@ -201,6 +201,8 @@ namespace LynxLib
 //------------------------------------------- Text lists ----------------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
+#ifdef ENABLE_LYNX_TEXTLISTS
+
 class LynxTextList
 {
 	static const LynxString _lynxStates[LynxLib::eLynxState_EndOfList];
@@ -211,6 +213,8 @@ public:
 	static LynxString lynxDataType(LynxLib::E_LynxDataType dataType);
 	static LynxString lynxAccessSpecifier(LynxLib::E_LynxDataType dataType);
 };
+
+#endif // ENABLE_LYNX_TEXTLISTS
 
 //-----------------------------------------------------------------------------------------------------------
 //------------------------------------------- Structures ----------------------------------------------------

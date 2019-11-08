@@ -556,6 +556,7 @@ namespace LynxLib
 //------------------------------------------- Text lists ----------------------------------------------------
 //-----------------------------------------------------------------------------------------------------------
 
+#ifdef ENABLE_LYNX_TEXTLISTS
 
 const LynxString LynxTextList::_lynxStates[LynxLib::eLynxState_EndOfList] =
 {
@@ -634,6 +635,8 @@ LynxString LynxTextList::lynxAccessSpecifier(LynxLib::E_LynxDataType dataType)
 	
 	return "Read only";
 }
+
+#endif // ENABLE_LYNX_TEXTLISTS
 
 //-----------------------------------------------------------------------------------------------------------
 //---------------------------------------- LynxStructure ----------------------------------------------------
