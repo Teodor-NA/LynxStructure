@@ -86,6 +86,7 @@ int LynxUartQt::read(int count)
 
 
     QByteArray temp = _port.port().read(count);
+    qDebug()<<temp;
 
     for (int i = 0; i < temp.count(); i++)
     {
