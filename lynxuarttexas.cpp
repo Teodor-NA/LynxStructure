@@ -7,7 +7,7 @@
 
 #include "lynxuarttexas.h"
 
-LynxUartTexas::LynxUartTexas(LynxManager * const lynx) : LynxIoDevice(lynx),rxBuffer(BUFFER_SIZE,LynxLib::eFixedOverwrite),txBuffer(BUFFER_SIZE,LynxLib::eFixedOverwrite)
+LynxUartTexas::LynxUartTexas(LynxManager * const lynx) : LynxIoDevice(lynx),rxBuffer(BUFFER_SIZE,LynxLib::eFixedOverwrite),txBuffer(BUFFER_SIZE,LynxLib::eAutogrow)
 {
     // TODO Auto-generated constructor stub
 
@@ -47,13 +47,14 @@ bool LynxUartTexas::open(int port,int baudrate,SCI_Handle _sciHandle,CLK_Handle 
     SCI_clearTxFifoInt(sciHandle);
     SCI_resetChannels(sciHandle);
     SCI_setTxFifoIntLevel(sciHandle, SCI_FifoLevel_4_Words);
-    SCI_enableTxFifoInt(sciHandle);
+    //SCI_enableTxFifoInt(sciHandle);
+    SCI_disableTxFifoInt(sciHandle);
 
     SCI_resetRxFifo(sciHandle);
     SCI_clearRxFifoInt(sciHandle);
     SCI_setRxFifoIntLevel(sciHandle, SCI_FifoLevel_4_Words);
-    SCI_enableRxFifoInt(sciHandle);
-
+    //SCI_enableRxFifoInt(sciHandle);
+    SCI_disableRxFifoInt(sciHandle);
     return _open=true;//success
 }
 void LynxUartTexas::close()

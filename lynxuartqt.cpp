@@ -41,6 +41,7 @@ bool LynxUartQt::open()
         this->close();
 
     _open = _port.port().open(QSerialPort::ReadWrite);
+       // _port.port().flush();
 
     return _open;
 }
@@ -86,7 +87,7 @@ int LynxUartQt::read(int count)
 
 
     QByteArray temp = _port.port().read(count);
-    qDebug()<<temp;
+    //qDebug()<<temp;
 
     for (int i = 0; i < temp.count(); i++)
     {

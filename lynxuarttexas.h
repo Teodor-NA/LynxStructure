@@ -7,7 +7,7 @@
 
 #ifndef LYNXUARTTEXAS_H_
 #define LYNXUARTTEXAS_H_
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 200
 #include "DSP28x_Project.h"
 #include "common/include/clk.h"
 #include "common/include/sci.h"
